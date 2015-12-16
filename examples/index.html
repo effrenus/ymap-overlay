@@ -1,39 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Drawer example</title>
-	<script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&mode=debug"></script>
-	<script src="/build/drawer.min.js"></script>
+    <title>Drawer example</title>
+    <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
 
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&mode=debug"></script>
+    <script src="/build/drawer.min.js"></script>
     <script>
         ymaps.ready(['Map', 'Placemark', 'geoObject.addon.balloon', 'geoObject.addon.hint'])
             .then(function (ym) {
-            	var map = new ym.Map('map', {
+                var map = new ym.Map('map', {
                         center: [55.74524234796502,37.586730756347656],
                         zoom: 12,
                         controls: []
                     });
-            	ym.modules.require('drawer.freeline')
+                ym.modules.require('drawer.freeline')
                     .spread(function(Freeline) {
-                		var d = new Freeline(map);
-                        d.enable();
-                	});
+                        (new Freeline(map).enable());
+                    });
             }).fail(onError);
 
         function onError (err) {
             console.error(err);
         }
     </script>
-    <style>
-	    html, body, #map {
-	    	width: 100%;
-	    	height: 100%;
-	    	margin: 0;
-	    	padding: 0;
-	    }
-    </style>
 </head>
 <body>
-	<div id="map"></div>
+    <div id="map"></div>
 </body>
 </html>

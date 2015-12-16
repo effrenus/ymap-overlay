@@ -4,17 +4,22 @@
   "description": "Draw line on map",
   "main": "index.js",
   "scripts": {
+    "watch": "ymb watch",
+    "build": "ymb build",
     "lint": "jscs ./src",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "pre-commit": {
-    "run": ["lint", "test"]
+    "run": [
+      "lint",
+      "test"
+    ]
   },
   "author": "Alexey Sazonov",
   "license": "ISC",
   "devDependencies": {
     "jscs": "^2.7.0",
     "pre-commit": "^1.1.2",
-    "ym-builder": "^0.1.1"
+    "ymb": "^0.3.42"
   }
 }

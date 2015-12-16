@@ -1,4 +1,4 @@
-ymaps.modules.define('drawer.freeline.Behavior', [
+ymaps.modules.define('drawer.freeline.Canvas', [
     'util.defineClass',
     'option.Manager',
     'pane.EventsPane',
@@ -12,17 +12,15 @@ ymaps.modules.define('drawer.freeline.Behavior', [
         }
     };
 
-    var FreelineBehavior = function (map) {
-        this._isDrawing = false;
+    var FreelineCanvas = function (map) {
         this._map = map;
         this._geometries = [];
         this._pane = new EventsPane(map, {
             zIndex: 850
         });
-        this.options = new OptionManager(DEFAULT_OPTIONS);
     };
 
-    defineClass(FreelineBehavior, {
+    defineClass(FreelineCanvas, {
         enable: function () {
             this._startListening();
             this._map.panes.append('drawerPane', this._pane);
@@ -31,6 +29,10 @@ ymaps.modules.define('drawer.freeline.Behavior', [
         disable: function () {
             this._stopListening();
             this._map.panes.remove(this._pane);
+        },
+
+        getGeometries: function () {
+            return this._geometries;
         },
 
         _startListening: function () {
@@ -44,48 +46,35 @@ ymaps.modules.define('drawer.freeline.Behavior', [
 
         _constructOverlay: function () {
             this._overlay = new PolylineOverlay(
-                new LineStringGeometry(this._points), {}, this.options.get('polyline'));
+                new LineStringGeometry(this._currentPath), {}, DEFAULT_OPTIONS.polyline);
             this._overlay.setMap(this._map);
         },
 
-        getGeometries: function () {
-            return this._geometries;
-        },
-
-        _saveCurrentGeometry: function () {
-            this._geometries.push(new LineStringGeometry(this._points));
-        },
-
         _onMouseDown: function (event) {
-            if (this._isDrawing) {
-                return;
-            }
-            this._points = [event.get('globalPixels')];
+            this._currentPath = [event.get('globalPixels')];
             this._constructOverlay();
-            this._isDrawing = true;
             this._listeners
                 .add('mouseup', this._onMouseUp, this)
                 .add('mousemove', this._onMouseMove, this);
         },
 
+        _onMouseMove: function (event) {
+            this._currentPath.push(event.get('globalPixels'));
+            this._updateOverlayGeometry();
+        },
+
         _onMouseUp: function (event) {
-            this._saveCurrentGeometry();
-            this._points = null;
-            this._isDrawing = false;
+            this._geometries.push(new LineStringGeometry(this._currentPath));
+            this._currentPath = null;
             this._listeners
                 .remove('mouseup', this._onMouseUp, this)
                 .remove('mousemove', this._onMouseMove, this);
         },
 
-        _onMouseMove: function (event) {
-            this._points.push(event.get('globalPixels'));
-            this._updateOverlayGeometry();
-        },
-
         _updateOverlayGeometry: function () {
-            this._overlay.setGeometry(new LineStringGeometry(this._points));
+            this._overlay.setGeometry(new LineStringGeometry(this._currentPath));
         }
     });
 
-    provide(FreelineBehavior);
+    provide(FreelineCanvas);
 });

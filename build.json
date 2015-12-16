@@ -1,4 +1,5 @@
 {
     "concatTo": "drawer.min.js",
-    "minify": false
+    "minify": false,
+    "namespace": "ymaps"
 }
