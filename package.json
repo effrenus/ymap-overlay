@@ -1,0 +1,20 @@
+{
+  "name": "freeline",
+  "version": "0.0.1",
+  "description": "Draw line on map",
+  "main": "index.js",
+  "scripts": {
+    "lint": "jscs ./src",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "pre-commit": {
+    "run": ["lint", "test"]
+  },
+  "author": "Alexey Sazonov",
+  "license": "ISC",
+  "devDependencies": {
+    "jscs": "^2.7.0",
+    "pre-commit": "^1.1.2",
+    "ym-builder": "^0.1.1"
+  }
+}
