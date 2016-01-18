@@ -11,19 +11,46 @@
         }
     </style>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/snap.svg/0.4.1/snap.svg-min.js"></script>
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&mode=debug"></script>
+
     <script src="/build/drawer.min.js"></script>
     <script>
         ymaps.ready(['Map', 'Placemark', 'geoObject.addon.balloon', 'geoObject.addon.hint'])
             .then(function (ym) {
                 var map = new ym.Map('map', {
-                        center: [55.74524234796502,37.586730756347656],
-                        zoom: 12,
+                        center: [55.74524234796502, 37.586730756347656],
+                        zoom: 11,
                         controls: []
                     });
-                ym.modules.require('drawer.freeline')
-                    .spread(function(Freeline) {
+                ym.modules.require([
+                    'drawer.freeline',
+                    'drawer.bubble.Overlay',
+                    'geometry.pixel.Point'
+                    ])
+                    .spread(function(Freeline, BubbleOverlay, PixelGeometryPoint) {
                         (new Freeline(map).enable());
+
+                        // map.geoObjects.add(new ym.Placemark(map.getCenter()));
+                        function setupBubble (pos) {
+                            var overlay = new BubbleOverlay(
+                                new PixelGeometryPoint(pos),
+                                {
+                                    text: 'Hello, dear user.... Yet another text'
+                                },
+                                {
+                                    radius: 10,
+                                    backgroundColor: '#444'
+                                }
+                            );
+                            overlay.setMap(map)
+                        }
+
+                        map.events.add('click', function (event) {
+                            setupBubble(map.converter.pageToGlobal(event.get('position')));
+                        });
+
+                        setupBubble(map.getGlobalPixelCenter());
                     });
             }).fail(onError);
 

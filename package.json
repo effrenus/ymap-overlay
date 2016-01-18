@@ -1,8 +1,7 @@
 {
-  "name": "freeline",
+  "name": "Toolbag for YMaps",
   "version": "0.0.1",
-  "description": "Draw line on map",
-  "main": "index.js",
+  "description": "Custom overlays",
   "scripts": {
     "watch": "ymb watch",
     "build": "ymb build",
@@ -11,7 +10,6 @@
   },
   "pre-commit": {
     "run": [
-      "lint",
       "test"
     ]
   },
