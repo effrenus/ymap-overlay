@@ -1,5 +1,5 @@
 {
-  "name": "Toolbag for YMaps",
+  "name": "ymaps-overlay",
   "version": "0.0.1",
   "description": "Custom overlays",
   "scripts": {
@@ -19,5 +19,6 @@
     "jscs": "^2.7.0",
     "pre-commit": "^1.1.2",
     "ymb": "^0.3.42"
-  }
+  },
+  "private": true
 }

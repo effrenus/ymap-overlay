@@ -14,7 +14,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/snap.svg/0.4.1/snap.svg-min.js"></script>
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&mode=debug"></script>
 
-    <script src="/build/drawer.min.js"></script>
+    <script src="/build/drawer.js"></script>
     <script>
         ymaps.ready(['Map', 'Placemark', 'geoObject.addon.balloon', 'geoObject.addon.hint'])
             .then(function (ym) {
@@ -36,7 +36,7 @@
                             var overlay = new BubbleOverlay(
                                 new PixelGeometryPoint(pos),
                                 {
-                                    text: 'Hello, dear user.... Yet another text'
+                                    text: 'Hello, dear user.... Yet another text. Really long, long string, that doesn\'t fit to container width. So must be truncated. And now looooooooooooooong story'
                                 },
                                 {
                                     radius: 10,

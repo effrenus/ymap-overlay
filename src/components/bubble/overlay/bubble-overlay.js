@@ -13,8 +13,7 @@ ymaps.modules.define(
         'util.extend',
         'event.Manager',
 
-        'drawer.bubble.layout.BubbleLayout',
-        'drawer.bubble.layout.PinLayout'
+        'drawer.bubble.layout.Layout'
     ],
     function (provide, defineClass, BaseWithView, DomView, RectangleShape,
         RectanglePixelGeometry, CircleShape,
@@ -36,18 +35,21 @@ ymaps.modules.define(
             },
 
             onPaneZoomChange: function (zoomDiff) {
-                var geometry = this.getGeometry();
-                if (zoomDiff) {
-                    geometry = geometry.scale(Math.pow(2, zoomDiff));
-                }
-                this._scaledGeometry = this.getOffsetGeometry(geometry);
-                this.applyGeometryToView(this._view, this._scaledGeometry);
-                if (this.isUnderEventsPane()) {
-                    this._hotspotView.setShape(this.calculateScaledShape(zoomDiff));
-                }
+                console.log('onPaneZoomChange', arguments)
+                // var geometry = this.getGeometry();
+                // if (zoomDiff) {
+                //     geometry = geometry.scale(Math.pow(2, zoomDiff));
+                // }
+                // this._scaledGeometry = this.getOffsetGeometry(geometry);
+                // this.applyGeometryToView(this._view, this._scaledGeometry);
+                // if (this.isUnderEventsPane()) {
+                //     this._hotspotView.setShape(this.calculateScaledShape(zoomDiff));
+                // }
             },
 
-            onPaneClientPixelsChange: function () {},
+            onPaneClientPixelsChange: function () {
+                console.log('onPaneClientPixelsChange');
+            },
 
             applyGeometry: function () {
                 this.applyGeometryToView(this.getOffsetGeometry(this.getGeometry()));
@@ -71,7 +73,7 @@ ymaps.modules.define(
                             backgroundColor: this.options.get('backgroundColor', 'green'),
                             viewportSize: this.getMap().container.getSize()
                         },
-                        defaultValue: 'bubble#pinLayout'
+                        defaultValue: 'bubble#layout'
                     }
                 });
             },
@@ -134,11 +136,8 @@ ymaps.modules.define(
                             this._pinHotspot._shape.shift(event.get('delta'))
                         );
 
-                        var layout = this._view.getLayoutSync();
-                        layout.getData().options.set('position', event.get('position'));
-                        layout.rebuild();
-
-                        // this._updateGeometry(pos);
+                        var layoutOptions = this._view.getLayoutSync().getData().options;
+                        layoutOptions.set('position', event.get('position'));
                     }, this)
                     .add('stop', function (event) {
 

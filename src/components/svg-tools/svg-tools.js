@@ -28,7 +28,7 @@ ymaps.modules.define('svg.tools', function (provide) {
         getCoordTransformFactor: function (svgElement, inverse) {
             var matrix = svgElement.getScreenCTM();
             if (inverse) {
-                matrix.inverse();
+                matrix = matrix.inverse();
             }
 
             return [matrix.a, matrix.d];

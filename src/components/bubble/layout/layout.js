@@ -1,5 +1,5 @@
 ymaps.modules.define(
-    'drawer.bubble.layout.PinLayout',
+    'drawer.bubble.layout.Layout',
     [
         'templateLayoutFactory',
         'geometry.pixel.Circle',
@@ -7,34 +7,41 @@ ymaps.modules.define(
         'layout.storage',
         'util.dom.style',
         'util.dom.element',
+        'util.css',
+        'Monitor',
         'svg.tools'
     ],
     function (provide, templateLayoutFactory, PixelGeometry, CircleShape,
-            layoutStorage, domStyle, domElement, svgTools) {
+            layoutStorage, domStyle, domElement, utilCss, Monitor, svgTools) {
 
-        // var toSVGCoord = svgTools.toSVGCoordinateSystem;
+        var PIN_CLASS = utilCss.addPrefix('pin'),
+            BUBBLE_CLASS = utilCss.addPrefix('bubble'),
 
-        var PADDING = 50,
-            PIN_CLASSNAME = 'ymaps-pin',
-            BUBBLE_PADDINGS = [15, 10],
-            TO_PIN_DISTANCE = 50;
+            PADDING = 50, // padding from nearest point, needed to create bubble tail
+            BUBBLE_PADDINGS = [15, 10], // content paddings inside bubble
+            TO_PIN_DISTANCE = 50, // default distance from bubble to point
+            TEXT_STYLE = {
+                'font-size': 16,
+                'font-family': 'Arial, sans-serif'
+            };
 
-        var PinLayout = templateLayoutFactory.createClass([
-            '<ymaps class="' + PIN_CLASSNAME + '" style="border-radius: 50%"></ymaps>',
-            '<svg class="bubble-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none">',
-            '</svg>'
+        var Layout = templateLayoutFactory.createClass([
+                '<ymaps class="' + PIN_CLASS + '" style="border-radius: 50%"></ymaps>',
+                '<svg class="' + BUBBLE_CLASS + '" preserveAspectRatio="xMinYMin slice"></svg>'
             ].join(''),
             {
                 build: function () {
-                    PinLayout.superclass.build.call(this);
+                    Layout.superclass.build.call(this);
 
                     var element = this.getElement(),
                         options = this.getData().options,
                         radius = options.get('radius'),
                         coords = options.get('position'),
-                        backgroundColor = options.get('backgroundColor', '#CCCCCC');
+                        viewportSize = options.get('viewportSize'),
+                        backgroundColor = options.get('backgroundColor', '#CCCCCC'),
+                        textString = options.get('text');
 
-                    domStyle.css(element.querySelector('.' + PIN_CLASSNAME), {
+                    domStyle.css(domElement.findByClassName(element, PIN_CLASS), {
                         position: 'absolute',
                         width: radius * 2 + 'px',
                         height: radius * 2 + 'px',
@@ -42,21 +49,39 @@ ymaps.modules.define(
                     });
                     this.setPinPosition([(coords[0] - radius), (coords[1] - radius)]);
 
-                    this.setSVGSize([
-                        options.get('viewportSize')[0],
-                        options.get('viewportSize')[1]
-                    ]);
+                    this.monitor = new Monitor(options);
+                    this.bindOptions();
 
-                    this._transformMatrix = svgTools.getCoordTransformFactor(this.getSVGElement(), true);
+                    /**
+                     * Set SVG element width/height
+                     */
+                    this.setSVGSize([viewportSize[0], viewportSize[1]]);
+
+                    this._transformMatrix = svgTools.getCoordTransformFactor(this.getSVGElement());
+
+                    this._hiddenSvgTextNode = this._setupHiddenTextNode(textString);
+                    this._textNodeSize = this._getTextBBox();
+
+                    /**
+                     * If text block width greater then viewport, truncate text string
+                     */
+                    if (this._textNodeSize[0] > viewportSize[0]) {
+                        textString = this._getTruncatedString(viewportSize[0] - BUBBLE_PADDINGS[0] * 2);
+                        this._hiddenSvgTextNode.textContent = textString;
+                        this._textNodeSize = this._getTextBBox();
+                    }
 
                     this._setBubbleBounds();
                     this._currentPath = this._getRectPath(options.get('bubbleSVGBounds'));
 
                     this._setupBubble(this._currentPath);
                     this._setupSVGTail(coords);
-                    this._setupText(options.get('text'));
+                    this._setupText(textString);
                 },
 
+                /**
+                 * Update pin position and bubble tail
+                 */
                 rebuild: function () {
                     var options = this.getData().options,
                         coords = options.get('position'),
@@ -67,51 +92,38 @@ ymaps.modules.define(
                 },
 
                 bindOptions: function () {
-
-                },
-
-                getBubblePosition: function () {
-
+                    this.monitor.add('position', function () {
+                        this.rebuild();
+                    }, this);
                 },
 
                 setPinPosition: function (pos) {
-                    var elm = this.getElement().querySelector('.' + PIN_CLASSNAME);
+                    var elm = domElement.findByClassName(this.getElement(), PIN_CLASS);
                     domStyle.setPosition(elm, pos);
                 },
 
+                /**
+                 * Setup SVG element width, height and viewBox attribute
+                 */
                 setSVGSize: function (size) {
                     this.getData().options.set('svgContainerSize', size);
                     // TODO: move to separate method _updateSVGSize (?)
                     domStyle.setSize(this.getSVGElement(), size);
+                    domStyle.attr(this.getSVGElement(), {viewBox: '0 0 ' + size[0] + ' ' + size[1]});
                 },
 
+                /**
+                 * Return SVG element
+                 * @return {HTMLElement}
+                 */
                 getSVGElement: function () {
-                    return domElement.find(this.getElement(), '.bubble-svg', false);
+                    return domElement.findByClassName(this.getElement(), BUBBLE_CLASS);
                 },
 
-                getTextNodeSize: function (textString) {
-                    var bbox,
-                        svgTextNode = domElement.create({
-                            tagName: 'text',
-                            namespace: 'http://www.w3.org/2000/svg',
-                            attr: {
-                                x: 0,
-                                y: 0,
-                                'font-size': '30',
-                                visibility: 'hidden'
-                            }
-                        });
-
-                    svgTextNode.textContent = textString;
-                    this.getSVGElement().appendChild(svgTextNode);
-                    bbox = svgTextNode.getBBox();
-
-                    svgTextNode.remove();
-                    svgTextNode = null;
-
-                    return this.toClientCoords([bbox.width, bbox.height]);
-                },
-
+                /**
+                 * Return bubble bound coordinates
+                 * @return {Number[]}
+                 */
                 getBubbleBound: function () {
                     var bounds = this.getData().options.get('bubbleSVGBounds');
 
@@ -121,6 +133,11 @@ ymaps.modules.define(
                     ];
                 },
 
+                /**
+                 * Convert from client coordinates to SVG coordinate system
+                 * @param  {Number[]} coordinates
+                 * @return {Number[]}
+                 */
                 toSVGCoords: function (coordinates) {
                     return [
                         coordinates[0] / this._transformMatrix[0],
@@ -128,6 +145,11 @@ ymaps.modules.define(
                     ];
                 },
 
+                /**
+                 * Convert from SVG coordinates to client
+                 * @param  {Number[]} coordinates
+                 * @return {Number[]}
+                 */
                 toClientCoords: function (coordinates) {
                     return [
                         coordinates[0] * this._transformMatrix[0],
@@ -135,6 +157,11 @@ ymaps.modules.define(
                     ];
                 },
 
+                /**
+                 * Move bubble by delta pixels
+                 * Input delta pixels converts to SVG coordinate system
+                 * @param  {Number[]} delta Client pixels
+                 */
                 moveBubble: function (delta) {
                     var bounds = this.getData().options.get('bubbleSVGBounds'),
                         transformedDelta = this.toSVGCoords(delta);
@@ -153,6 +180,34 @@ ymaps.modules.define(
                     this._updateTextPosition();
                 },
 
+                /**
+                 * Creates <text/> element with visibility hidden
+                 * Needs for internal calculations
+                 * @param {String} textString
+                 */
+                _setupHiddenTextNode: function (textString) {
+                    var node = domElement.create({
+                        tagName: 'text',
+                        namespace: 'http://www.w3.org/2000/svg',
+                        attr: {
+                            x: 0,
+                            y: 0,
+                            visibility: 'hidden'
+                        },
+                        css: TEXT_STYLE
+                    });
+
+                    node.textContent = textString;
+                    this.getSVGElement().appendChild(node);
+
+                    return node;
+                },
+
+                /**
+                 * Bubble SVG path
+                 * @param  {Number[][]} bounds
+                 * @return {String} path
+                 */
                 _getRectPath: function (bounds) {
                     return [
                         'M', bounds[0][0], bounds[0][1],
@@ -163,7 +218,13 @@ ymaps.modules.define(
                     ].join(' ');
                 },
 
-                _getTailPath: function (point, tailPeakPoint, len) {
+                /**
+                 * Return SVG string path
+                 * @param  {Number[]} tailPeakPoint
+                 * @param  {Number} len
+                 * @return {String} tail path
+                 */
+                _getTailPath: function (tailPeakPoint, len) {
                     var path = '',
                         middle = this._svgHiddenPath.getPointAtLength(len),
                         to = this._svgHiddenPath.getPointAtLength(len + PADDING);
@@ -179,20 +240,22 @@ ymaps.modules.define(
                  */
                 _setBubbleBounds: function () {
                     var options = this.getData().options,
-                        coords = options.get('position'),
-                        textNodeBounds = this.getTextNodeSize(this.getData().options.get('text'));
+                        coords = options.get('position');
 
                     this.getData().options.set(
                         'bubbleSVGBounds',
                         [
                             this.toSVGCoords([coords[0] - 100, coords[1] - 20]),
-                            this.toSVGCoords([coords[0] + textNodeBounds[0] - 100, coords[1] - textNodeBounds[1] - 20])
+                            this.toSVGCoords([
+                                coords[0] + this._textNodeSize[0] + (BUBBLE_PADDINGS[0] * 2) - 100,
+                                coords[1] - (BUBBLE_PADDINGS[1] * 2) - this._textNodeSize[1] - 20
+                            ])
                         ]
                     );
                 },
 
                 /**
-                 * Create SVG element for bubble and hidden copy
+                 * Create SVG element for bubble and yet one, that is hidden
                  * Hidden element used for nearest point calculation
                  * @param  {String} path
                  */
@@ -203,7 +266,7 @@ ymaps.modules.define(
                         css: {
                             fill: '#FFFFFF',
                             stroke: '#333333',
-                            'stroke-width': 4
+                            'stroke-width': 2
                         },
                         attr: {
                             d: path
@@ -220,13 +283,22 @@ ymaps.modules.define(
                     this.getSVGElement().appendChild(this._svgPathElement);
                 },
 
+                _getTextBBox: function () {
+                    if (!this._hiddenSvgTextNode) {
+                        throw new Error('You should setup hidden text element before invoke _getTextBBox');
+                    }
+                    var textBBox = this._hiddenSvgTextNode.getBBox();
+
+                    return this.toClientCoords([textBBox.width, textBBox.height]);
+                },
+
                 _setupSVGTail: function (pinCoords) {
                     var parts = [],
                         pinSVGCoords = this.toSVGCoords(pinCoords),
                         nearestPoint = svgTools.findPathClosestPoint(this._svgHiddenPath, pinSVGCoords);
 
                     parts.push(Snap.path.getSubpath(this._currentPath, 0,   nearestPoint.lengthToPoint - PADDING));
-                    parts.push(this._getTailPath(nearestPoint, pinSVGCoords, nearestPoint.lengthToPoint));
+                    parts.push(this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint));
                     parts.push(Snap.path.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, this._svgHiddenPath.getTotalLength()));
 
                     this._svgPathElement.setAttribute('d', parts.join());
@@ -240,29 +312,54 @@ ymaps.modules.define(
                         namespace: 'http://www.w3.org/2000/svg',
                         attr: {
                             x: bounds[0][0] + (BUBBLE_PADDINGS[0] / this._transformMatrix[0]),
-                            y: bounds[1][1] + (BUBBLE_PADDINGS[1] / this._transformMatrix[1]),
-                            'font-size': '30'
-                        }
+                            y: bounds[1][1] + this._textNodeSize[1] + (BUBBLE_PADDINGS[1] / this._transformMatrix[1])
+                        },
+                        css: TEXT_STYLE
                     });
                     this._textSVGNode.textContent = textString;
 
                     this.getSVGElement().appendChild(this._textSVGNode);
                 },
 
+                _getTruncatedString: function (contentWidth) {
+                    contentWidth = contentWidth / this._transformMatrix[0];
+
+                    var node = this._hiddenSvgTextNode,
+                        textString = this.getData().options.get('text'),
+                        len = node.getNumberOfChars(),
+                        pivot = Math.floor(len / 2),
+                        beforeDir = node.getSubStringLength(0, pivot) > contentWidth ? -1 : 1,
+                        truncWidth;
+
+                    for (var i = pivot + beforeDir; 0 < i < len;) {
+                        truncWidth = node.getSubStringLength(0, i);
+                        dir = truncWidth > contentWidth ?  -1 : 1;
+
+                        if (dir == beforeDir) {
+                            i += dir;
+                        } else {
+                            len = dir == 1 ? i : i - 1;
+                            break;
+                        }
+                    }
+
+                    return textString.substring(0, len);
+                },
+
                 _updateTextPosition: function () {
-                    var node = this.getSVGElement().querySelector('text'),
+                    var node = this._textSVGNode,
                         bounds = this.getData().options.get('bubbleSVGBounds');
 
                     domStyle.attr(node, {
                         x: bounds[0][0] + (BUBBLE_PADDINGS[0] / this._transformMatrix[0]),
-                        y: bounds[1][1] + (BUBBLE_PADDINGS[1] / this._transformMatrix[1])
+                        y: bounds[1][1] + this._textNodeSize[1] + (BUBBLE_PADDINGS[1] / this._transformMatrix[1])
                     });
                 }
             }
         );
 
-        layoutStorage.add('bubble#pinLayout', PinLayout);
+        layoutStorage.add('bubble#layout', Layout);
 
-        provide(PinLayout);
+        provide(Layout);
     }
 );
