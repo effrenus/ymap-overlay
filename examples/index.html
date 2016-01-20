@@ -30,13 +30,14 @@
                     ])
                     .spread(function(Freeline, BubbleOverlay, PixelGeometryPoint) {
                         (new Freeline(map).enable());
+                        var textStr = 'Hello, dear user.... Yet another text. Really long, long string, that doesn\'t fit to container width. So must be truncated. And now looooooooooooooong story';
 
                         // map.geoObjects.add(new ym.Placemark(map.getCenter()));
                         function setupBubble (pos) {
                             var overlay = new BubbleOverlay(
                                 new PixelGeometryPoint(pos),
                                 {
-                                    text: 'Hello, dear user.... Yet another text. Really long, long string, that doesn\'t fit to container width. So must be truncated. And now looooooooooooooong story'
+                                    text: textStr.substring(0, 5 + Math.floor(Math.random() * (textStr.length - 5)))
                                 },
                                 {
                                     radius: 10,

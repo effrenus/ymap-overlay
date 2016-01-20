@@ -1,3 +1,9 @@
 {
-    "preset": "yandex"
+    "preset": "yandex",
+
+    "disallowMultipleVarDecl": false,
+    "requireSpacesInFunction": {
+        "beforeOpeningRoundBrace": true,
+        "beforeOpeningCurlyBrace": true
+    }
 }

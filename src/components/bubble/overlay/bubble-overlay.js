@@ -35,20 +35,14 @@ ymaps.modules.define(
             },
 
             onPaneZoomChange: function (zoomDiff) {
-                console.log('onPaneZoomChange', arguments)
-                // var geometry = this.getGeometry();
-                // if (zoomDiff) {
-                //     geometry = geometry.scale(Math.pow(2, zoomDiff));
-                // }
-                // this._scaledGeometry = this.getOffsetGeometry(geometry);
-                // this.applyGeometryToView(this._view, this._scaledGeometry);
-                // if (this.isUnderEventsPane()) {
-                //     this._hotspotView.setShape(this.calculateScaledShape(zoomDiff));
-                // }
+
             },
 
+            // Triggered by pane `clientpixelschange` event
+            // see https://tech.yandex.ru/maps/doc/jsapi/2.1/ref/reference/IContainerPane-docpage/#event-clientpixelschange
+            // or it work for shape not overlay
             onPaneClientPixelsChange: function () {
-                console.log('onPaneClientPixelsChange');
+                console.log('onPaneClientPixelsChange', this.getGeometry());
             },
 
             applyGeometry: function () {
@@ -59,12 +53,15 @@ ymaps.modules.define(
                 this._applyGeometry(geometry);
             },
 
+            // Override, because `_hotspotView.setShape` inside parent method throw error
+            applyShape: function () {},
+
             _setupView: function () {
                 this._view = new DomView({
                     position: this.getPane().fromClientPixels([0, 0]),
                     options: this.options,
-                    pane: this.resolvePane(this.monitor.get("pane")),
-                    zIndex: this.monitor.get("zIndex"),
+                    pane: this.resolvePane(this.monitor.get('pane')),
+                    zIndex: this.monitor.get('zIndex'),
                     layout: {
                         options: {
                             position: this.getPane().toClientPixels(this.getGeometry().getCoordinates()),
@@ -82,9 +79,9 @@ ymaps.modules.define(
                 var defaultParams = {
                     options: this.options,
                     eventMapper: this.getEventMapper(),
-                    containerPane: this.resolvePane(this.monitor.get("pane")),
-                    pane: this.resolvePane(this.monitor.get("eventsPane")),
-                    zIndex: this.monitor.get("zIndex"),
+                    containerPane: this.resolvePane(this.monitor.get('pane')),
+                    pane: this.resolvePane(this.monitor.get('eventsPane')),
+                    zIndex: this.monitor.get('zIndex'),
                     monitorInteractiveOption: true
                 };
 
@@ -151,7 +148,7 @@ ymaps.modules.define(
                         );
 
                         var layout = this._view.getLayoutSync();
-                        layout.moveBubble(event.get('delta'));
+                        layout.translateBubble(event.get('delta'));
                         layout.rebuild();
                     }, this);
             },
@@ -161,18 +158,6 @@ ymaps.modules.define(
                 var globalPos = map.converter.pageToGlobal(pos);
                 this.getGeometry().setCoordinates(
                     map.options.get('projection').fromGlobalPixels(globalPos, map.getZoom())
-                );
-            },
-
-            _getBubbleShape: function () {
-                var pixelCoordinates = this._getPixelCoordinates();
-                var size = this._bubbleView.getLayoutSync().getSize();
-
-                return new RectangleShape(
-                    new RectanglePixelGeometry([
-                        [pixelCoordinates[0] - (size[0] / 2), pixelCoordinates[1]],
-                        [pixelCoordinates[0] + (size[0] / 2), pixelCoordinates[1] - size[1]]
-                    ])
                 );
             },
 

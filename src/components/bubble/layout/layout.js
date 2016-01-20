@@ -71,7 +71,7 @@ ymaps.modules.define(
                         this._textNodeSize = this._getTextBBox();
                     }
 
-                    this._setBubbleBounds();
+                    this._setupBubbleBounds();
                     this._currentPath = this._getRectPath(options.get('bubbleSVGBounds'));
 
                     this._setupBubble(this._currentPath);
@@ -81,6 +81,7 @@ ymaps.modules.define(
 
                 /**
                  * Update pin position and bubble tail
+                 * Invoked after pin position changed
                  */
                 rebuild: function () {
                     var options = this.getData().options,
@@ -91,6 +92,9 @@ ymaps.modules.define(
                     this._setupSVGTail(coords);
                 },
 
+                /**
+                 * Bind listeners to option changes
+                 */
                 bindOptions: function () {
                     this.monitor.add('position', function () {
                         this.rebuild();
@@ -162,7 +166,7 @@ ymaps.modules.define(
                  * Input delta pixels converts to SVG coordinate system
                  * @param  {Number[]} delta Client pixels
                  */
-                moveBubble: function (delta) {
+                translateBubble: function (delta) {
                     var bounds = this.getData().options.get('bubbleSVGBounds'),
                         transformedDelta = this.toSVGCoords(delta);
 
@@ -238,17 +242,20 @@ ymaps.modules.define(
                 /**
                  * Setup bubble bottom-left and top-right coordinates
                  */
-                _setBubbleBounds: function () {
+                _setupBubbleBounds: function () {
                     var options = this.getData().options,
-                        coords = options.get('position');
+                        coords = options.get('position'),
+                        width = this._textNodeSize[0] + (BUBBLE_PADDINGS[0] * 2),
+                        height = this._textNodeSize[1] + (BUBBLE_PADDINGS[1] * 2),
+                        distanceToPin = 20;
 
                     this.getData().options.set(
                         'bubbleSVGBounds',
                         [
-                            this.toSVGCoords([coords[0] - 100, coords[1] - 20]),
+                            this.toSVGCoords([coords[0] - (width / 2), coords[1] - distanceToPin]),
                             this.toSVGCoords([
-                                coords[0] + this._textNodeSize[0] + (BUBBLE_PADDINGS[0] * 2) - 100,
-                                coords[1] - (BUBBLE_PADDINGS[1] * 2) - this._textNodeSize[1] - 20
+                                coords[0] + width - (width / 2),
+                                coords[1] - height - distanceToPin
                             ])
                         ]
                     );
@@ -283,6 +290,10 @@ ymaps.modules.define(
                     this.getSVGElement().appendChild(this._svgPathElement);
                 },
 
+                /**
+                 * Text element BBox
+                 * @return {Number[]} In client coordinate sustem
+                 */
                 _getTextBBox: function () {
                     if (!this._hiddenSvgTextNode) {
                         throw new Error('You should setup hidden text element before invoke _getTextBBox');
@@ -294,16 +305,37 @@ ymaps.modules.define(
 
                 _setupSVGTail: function (pinCoords) {
                     var parts = [],
+                        pathLength = this._svgHiddenPath.getTotalLength(),
                         pinSVGCoords = this.toSVGCoords(pinCoords),
                         nearestPoint = svgTools.findPathClosestPoint(this._svgHiddenPath, pinSVGCoords);
 
-                    parts.push(Snap.path.getSubpath(this._currentPath, 0,   nearestPoint.lengthToPoint - PADDING));
-                    parts.push(this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint));
-                    parts.push(Snap.path.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, this._svgHiddenPath.getTotalLength()));
+                    if (nearestPoint.lengthToPoint < PADDING) {
+                        parts.push(
+                            Snap.path.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength)
+                        );
+                        parts.push(
+                            this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint)
+                        );
+                    } else if (nearestPoint.lengthToPoint > pathLength - PADDING) {
+                        parts.push(
+                            Snap.path.getSubpath(this._currentPath, PADDING - (pathLength - nearestPoint.lengthToPoint), nearestPoint.lengthToPoint - PADDING)
+                        );
+                        parts.push(
+                            this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint - pathLength)
+                        );
+                    } else {
+                        parts.push(Snap.path.getSubpath(this._currentPath, 0,   nearestPoint.lengthToPoint - PADDING));
+                        parts.push(this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint));
+                        parts.push(Snap.path.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength));
+                    }
 
                     this._svgPathElement.setAttribute('d', parts.join());
                 },
 
+                /**
+                 * Creates SVG text element with user text
+                 * @param  {String} textString
+                 */
                 _setupText: function (textString) {
                     var bounds = this.getData().options.get('bubbleSVGBounds');
 
@@ -321,6 +353,11 @@ ymaps.modules.define(
                     this.getSVGElement().appendChild(this._textSVGNode);
                 },
 
+                /**
+                 * Truncate string so bubble fit to SVG container
+                 * @param  {Number} contentWidth Bubble content width excluding paddings
+                 * @return {String}
+                 */
                 _getTruncatedString: function (contentWidth) {
                     contentWidth = contentWidth / this._transformMatrix[0];
 
@@ -346,6 +383,9 @@ ymaps.modules.define(
                     return textString.substring(0, len);
                 },
 
+                /**
+                 * Update SVG text element position
+                 */
                 _updateTextPosition: function () {
                     var node = this._textSVGNode,
                         bounds = this.getData().options.get('bubbleSVGBounds');
