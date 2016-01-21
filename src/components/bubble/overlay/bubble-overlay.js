@@ -19,6 +19,9 @@ ymaps.modules.define(
         RectanglePixelGeometry, CircleShape,
         CirclePixelGeometry, HotspotView, Dragger, extend, EventManager) {
 
+        var DEFAULT_PIN_RADIUS = 10,
+            DEFAULT_PIN_COLOR = '#555555';
+
         function BubbleOverlay (geometry, data, options) {
             BubbleOverlay.superclass.constructor.call(this, geometry, data, options);
         }
@@ -35,22 +38,12 @@ ymaps.modules.define(
             },
 
             onPaneZoomChange: function (zoomDiff) {
-
+                console.log('zoom changed');
             },
 
-            // Triggered by pane `clientpixelschange` event
-            // see https://tech.yandex.ru/maps/doc/jsapi/2.1/ref/reference/IContainerPane-docpage/#event-clientpixelschange
-            // or it work for shape not overlay
             onPaneClientPixelsChange: function () {
-                console.log('onPaneClientPixelsChange', this.getGeometry());
-            },
-
-            applyGeometry: function () {
-                this.applyGeometryToView(this.getOffsetGeometry(this.getGeometry()));
-            },
-
-            applyGeometryToView: function (geometry) {
-                this._applyGeometry(geometry);
+                var layoutOptions = this._view.getLayoutSync().getData().options;
+                layoutOptions.set('position', this.getPane().toClientPixels(this.getGeometry().getCoordinates()));
             },
 
             // Override, because `_hotspotView.setShape` inside parent method throw error
@@ -66,11 +59,11 @@ ymaps.modules.define(
                         options: {
                             position: this.getPane().toClientPixels(this.getGeometry().getCoordinates()),
                             text: this.getData().text || '',
-                            radius: this.options.get('radius', 10),
-                            backgroundColor: this.options.get('backgroundColor', 'green'),
+                            radius: this.options.get('radius', DEFAULT_PIN_RADIUS),
+                            backgroundColor: this.options.get('backgroundColor', DEFAULT_PIN_COLOR),
                             viewportSize: this.getMap().container.getSize()
                         },
-                        defaultValue: 'bubble#layout'
+                        defaultValue: 'drawer#bubbleLayout'
                     }
                 });
             },
@@ -96,13 +89,6 @@ ymaps.modules.define(
                     shape: this._getBubbleShape(),
                     eventMapper: this._bubbleEvents
                 }));
-            },
-
-            _getPixelCoordinates: function () {
-                var map = this.getMap(),
-                    coordinates = this.getGeometry().getCoordinates();
-
-                return map.options.get('projection').toGlobalPixels(coordinates, map.getZoom());
             },
 
             _setupDraggable: function () {
@@ -153,17 +139,12 @@ ymaps.modules.define(
                     }, this);
             },
 
-            _updateGeometry: function (pos) {
-                var map = this.getMap();
-                var globalPos = map.converter.pageToGlobal(pos);
-                this.getGeometry().setCoordinates(
-                    map.options.get('projection').fromGlobalPixels(globalPos, map.getZoom())
-                );
-            },
-
             _getPinShape: function () {
                 return new CircleShape(
-                    new CirclePixelGeometry(this.getGeometry().getCoordinates(), 10)
+                    new CirclePixelGeometry(
+                        this.getGeometry().getCoordinates(),
+                        this.options.get('radius', DEFAULT_PIN_RADIUS)
+                    )
                 );
             },
 
@@ -177,10 +158,6 @@ ymaps.modules.define(
                         converter.pageToGlobal(rectBounds[1])
                     ])
                 );
-            },
-
-            _applyGeometry: function (geometry) {
-                this._view.setPosition(this.geometryToViewPosition(geometry));
             }
         });
 

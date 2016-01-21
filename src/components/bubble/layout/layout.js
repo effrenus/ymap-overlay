@@ -98,6 +98,7 @@ ymaps.modules.define(
                 bindOptions: function () {
                     this.monitor.add('position', function () {
                         this.rebuild();
+                        this._updateBubblePosition();
                     }, this);
                 },
 
@@ -182,6 +183,10 @@ ymaps.modules.define(
                     this._svgPathElement.setAttribute('d', this._currentPath);
                     this._svgHiddenPath.setAttribute('d', this._currentPath);
                     this._updateTextPosition();
+                },
+
+                _updateBubblePosition: function () {
+                    // update
                 },
 
                 /**
@@ -398,7 +403,7 @@ ymaps.modules.define(
             }
         );
 
-        layoutStorage.add('bubble#layout', Layout);
+        layoutStorage.add('drawer#bubbleLayout', Layout);
 
         provide(Layout);
     }
