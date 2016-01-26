@@ -1,12 +1,5 @@
 ymaps.modules.define('svg.tools', function (provide) {
 
-    function getDistance (p1, p2) {
-        var dx = p1.x - p2[0],
-            dy = p1.y - p2[1];
-
-        return dx * dx + dy * dy;
-    }
-
     provide({
         /**
          * Map coordinates to SVG coordinate system
@@ -34,6 +27,11 @@ ymaps.modules.define('svg.tools', function (provide) {
             return [matrix.a, matrix.d];
         },
 
+        /**
+         * Convert path string
+         * @param  {HTMLElement} pathNode
+         * @return {Mixed[]}
+         */
         parsePath: function (pathNode) {
             return Snap.path.toCubic(pathNode.getAttribute('d'));
         },
@@ -97,4 +95,19 @@ ymaps.modules.define('svg.tools', function (provide) {
             return best;
         }
     });
+
+    /**
+     * Calculate distance between points within SVG
+     * TODO: Send p1 as array
+     * @param  {Object} p1 {x, y}
+     * @param  {Number[]} p2 [x, y]
+     * @return {Number}
+     */
+    function getDistance (p1, p2) {
+        var dx = p1.x - p2[0],
+            dy = p1.y - p2[1];
+
+        return dx * dx + dy * dy;
+    }
+
 });

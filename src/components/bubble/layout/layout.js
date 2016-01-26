@@ -308,6 +308,12 @@ ymaps.modules.define(
                     return this.toClientCoords([textBBox.width, textBBox.height]);
                 },
 
+                /**
+                 * I'm not sure that its the best solution
+                 * Now nearest point on path is calculated, then path cutted to two part and between
+                 * inserts tail path
+                 * @param  {Number[]} pinCoords
+                 */
                 _setupSVGTail: function (pinCoords) {
                     var parts = [],
                         pathLength = this._svgHiddenPath.getTotalLength(),
