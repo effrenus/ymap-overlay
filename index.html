@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Drawer example</title>
+    <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/snap.svg/0.4.1/snap.svg-min.js"></script>
+    <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&mode=debug"></script>
+
+    <script src="./drawer.js"></script>
+    <script>
+        ymaps.ready(['Map', 'Placemark', 'geoObject.addon.balloon', 'geoObject.addon.hint'])
+            .then(function (ym) {
+                var map = new ym.Map('map', {
+                        center: [55.74524234796502, 37.586730756347656],
+                        zoom: 11,
+                        controls: []
+                    });
+                ym.modules.require([
+                    'drawer.freeline',
+                    'drawer.bubble.Overlay',
+                    'geometry.pixel.Point'
+                    ])
+                    .spread(function(Freeline, BubbleOverlay, PixelGeometryPoint) {
+                        (new Freeline(map).enable());
+                        var textStr = 'Hello, dear user.... Yet another text. Really long, long string, that doesn\'t fit to container width. So must be truncated. And now looooooooooooooong story';
+
+                        // map.geoObjects.add(new ym.Placemark(map.getCenter()));
+                        function setupBubble (pos) {
+                            var overlay = new BubbleOverlay(
+                                new PixelGeometryPoint(pos),
+                                {
+                                    text: textStr.substring(0, 5 + Math.floor(Math.random() * (textStr.length - 5)))
+                                },
+                                {
+                                    radius: 10,
+                                    backgroundColor: '#444'
+                                }
+                            );
+                            overlay.setMap(map)
+                        }
+
+                        map.events.add('click', function (event) {
+                            setupBubble(map.converter.pageToGlobal(event.get('position')));
+                        });
+
+                        setupBubble(map.getGlobalPixelCenter());
+                    });
+            }).fail(onError);
+
+        function onError (err) {
+            console.error(err);
+        }
+    </script>
+</head>
+<body>
+    <div id="map"></div>
+</body>
+</html>
