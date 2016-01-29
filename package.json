@@ -1,6 +1,6 @@
 {
   "name": "ymaps-overlay",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Custom overlays",
   "scripts": {
     "watch": "ymb watch",
@@ -14,7 +14,7 @@
     ]
   },
   "author": "Alexey Sazonov",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
     "jscs": "^2.7.0",
     "pre-commit": "^1.1.2",

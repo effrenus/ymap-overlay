@@ -1,4 +1,12 @@
-ymaps.modules.define('svg.tools', function (provide) {
+/**
+ * @fileOverview
+ */
+ymaps.modules.define(
+    'util.svgTools',
+    [
+        'util.svgPath'
+    ],
+    function (provide, svgPath) {
 
     provide({
         /**
@@ -33,7 +41,7 @@ ymaps.modules.define('svg.tools', function (provide) {
          * @return {Mixed[]}
          */
         parsePath: function (pathNode) {
-            return Snap.path.toCubic(pathNode.getAttribute('d'));
+            return svgPath.toCubic(pathNode.getAttribute('d'));
         },
 
         scale: function (path, x, y) {
@@ -62,8 +70,18 @@ ymaps.modules.define('svg.tools', function (provide) {
                 bestLength,
                 bestDistance = Infinity;
 
+            /**
+             * Point coords on path at specific length
+             * @param  {Number} len
+             * @return {Number}
+             */
+            function getPointAtLength (len) {
+                var coord = pathNode.getPointAtLength(len);
+                return [coord.x, coord.y];
+            }
+
             for (var scan, scanLength = 0, scanDistance; scanLength <= pathLength; scanLength += precision) {
-                if ((scanDistance = getDistance(scan = pathNode.getPointAtLength(scanLength), point)) < bestDistance) {
+                if ((scanDistance = getDistance(scan = getPointAtLength(scanLength), point)) < bestDistance) {
                     best = scan, bestLength = scanLength, bestDistance = scanDistance;
                 }
             }
@@ -78,10 +96,10 @@ ymaps.modules.define('svg.tools', function (provide) {
                     afterDistance;
 
                 if ((beforeLength = bestLength - precision) >= 0 &&
-                    (beforeDistance = getDistance(before = pathNode.getPointAtLength(beforeLength), point)) < bestDistance) {
+                    (beforeDistance = getDistance(before = getPointAtLength(beforeLength), point)) < bestDistance) {
                     best = before, bestLength = beforeLength, bestDistance = beforeDistance;
                 } else if ((afterLength = bestLength + precision) <= pathLength &&
-                            (afterDistance = getDistance(after = pathNode.getPointAtLength(afterLength), point)) < bestDistance) {
+                            (afterDistance = getDistance(after = getPointAtLength(afterLength), point)) < bestDistance) {
                     best = after, bestLength = afterLength, bestDistance = afterDistance;
                 } else {
                     precision *= 0.5;
@@ -98,14 +116,13 @@ ymaps.modules.define('svg.tools', function (provide) {
 
     /**
      * Calculate distance between points within SVG
-     * TODO: Send p1 as array
-     * @param  {Object} p1 {x, y}
+     * @param  {Number[]} p1 [x, y]
      * @param  {Number[]} p2 [x, y]
      * @return {Number}
      */
     function getDistance (p1, p2) {
-        var dx = p1.x - p2[0],
-            dy = p1.y - p2[1];
+        var dx = p1[0] - p2[0],
+            dy = p1[1] - p2[1];
 
         return dx * dx + dy * dy;
     }

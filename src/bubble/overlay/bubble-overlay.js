@@ -16,8 +16,8 @@ ymaps.modules.define(
         'drawer.bubble.layout.Layout'
     ],
     function (provide, defineClass, BaseWithView, DomView, RectangleShape,
-        RectanglePixelGeometry, CircleShape,
-        CirclePixelGeometry, HotspotView, Dragger, extend, EventManager) {
+        RectanglePixelGeometry, CircleShape, CirclePixelGeometry,
+        HotspotView, Dragger, extend, EventManager) {
 
         var DEFAULT_PIN_RADIUS = 10,
             DEFAULT_PIN_COLOR = '#555555';

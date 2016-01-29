@@ -11,7 +11,6 @@
         }
     </style>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/snap.svg/0.4.1/snap.svg-min.js"></script>
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&mode=debug"></script>
 
     <script src="/build/drawer.js"></script>
@@ -32,7 +31,6 @@
                         (new Freeline(map).enable());
                         var textStr = 'Hello, dear user.... Yet another text. Really long, long string, that doesn\'t fit to container width. So must be truncated. And now looooooooooooooong story';
 
-                        // map.geoObjects.add(new ym.Placemark(map.getCenter()));
                         function setupBubble (pos) {
                             var overlay = new BubbleOverlay(
                                 new PixelGeometryPoint(pos),

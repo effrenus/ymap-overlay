@@ -9,10 +9,11 @@ ymaps.modules.define(
         'util.dom.element',
         'util.css',
         'Monitor',
-        'svg.tools'
+        'util.svgTools',
+        'util.svgPath'
     ],
     function (provide, templateLayoutFactory, PixelGeometry, CircleShape,
-            layoutStorage, domStyle, domElement, utilCss, Monitor, svgTools) {
+            layoutStorage, domStyle, domElement, utilCss, Monitor, svgTools, svgPath) {
 
         var PIN_CLASS = utilCss.addPrefix('pin'),
             BUBBLE_CLASS = utilCss.addPrefix('bubble'),
@@ -322,22 +323,22 @@ ymaps.modules.define(
 
                     if (nearestPoint.lengthToPoint < PADDING) {
                         parts.push(
-                            Snap.path.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength)
+                            svgPath.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength)
                         );
                         parts.push(
                             this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint)
                         );
                     } else if (nearestPoint.lengthToPoint > pathLength - PADDING) {
                         parts.push(
-                            Snap.path.getSubpath(this._currentPath, PADDING - (pathLength - nearestPoint.lengthToPoint), nearestPoint.lengthToPoint - PADDING)
+                            svgPath.getSubpath(this._currentPath, PADDING - (pathLength - nearestPoint.lengthToPoint), nearestPoint.lengthToPoint - PADDING)
                         );
                         parts.push(
                             this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint - pathLength)
                         );
                     } else {
-                        parts.push(Snap.path.getSubpath(this._currentPath, 0,   nearestPoint.lengthToPoint - PADDING));
+                        parts.push(svgPath.getSubpath(this._currentPath, 0,   nearestPoint.lengthToPoint - PADDING));
                         parts.push(this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint));
-                        parts.push(Snap.path.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength));
+                        parts.push(svgPath.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength));
                     }
 
                     this._svgPathElement.setAttribute('d', parts.join());
