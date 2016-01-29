@@ -372,9 +372,6 @@ ym.modules.define(
         function inter(bez1, bez2) {
             return interHelper(bez1, bez2);
         }
-        function interCount(bez1, bez2) {
-            return interHelper(bez1, bez2, 1);
-        }
         function interHelper(bez1, bez2, justCount) {
             var bbox1 = bezierBBox(bez1),
                 bbox2 = bezierBBox(bez2);
@@ -429,43 +426,6 @@ ym.modules.define(
                 }
             }
             return res;
-        }
-        function pathBBox(path) {
-            var pth = paths(path);
-            if (pth.bbox) {
-                return clone(pth.bbox);
-            }
-            if (!path) {
-                return box();
-            }
-            path = path2curve(path);
-            var x = 0,
-                y = 0,
-                X = [],
-                Y = [],
-                p;
-            for (var i = 0, ii = path.length; i < ii; i++) {
-                p = path[i];
-                if (p[0] == "M") {
-                    x = p[1];
-                    y = p[2];
-                    X.push(x);
-                    Y.push(y);
-                } else {
-                    var dim = curveDim(x, y, p[1], p[2], p[3], p[4], p[5], p[6]);
-                    X = X.concat(dim.min.x, dim.max.x);
-                    Y = Y.concat(dim.min.y, dim.max.y);
-                    x = p[5];
-                    y = p[6];
-                }
-            }
-            var xmin = mmin.apply(0, X),
-                ymin = mmin.apply(0, Y),
-                xmax = mmax.apply(0, X),
-                ymax = mmax.apply(0, Y),
-                bb = box(xmin, ymin, xmax - xmin, ymax - ymin);
-            pth.bbox = clone(bb);
-            return bb;
         }
         function rectPath(x, y, w, h, r) {
             if (r) {
@@ -565,15 +525,6 @@ ym.modules.define(
                         case "H":
                             r[1] = +pa[1] + x;
                             break;
-                        case "R":
-                            var dots = [x, y].concat(pa.slice(1));
-                            for (var j = 2, jj = dots.length; j < jj; j++) {
-                                dots[j] = +dots[j] + x;
-                                dots[++j] = +dots[j] + y;
-                            }
-                            res.pop();
-                            res = res.concat(catmullRom2bezier(dots, crz));
-                            break;
                         case "O":
                             res.pop();
                             dots = ellipsePath(x, y, pa[1], pa[2]);
@@ -593,11 +544,6 @@ ym.modules.define(
                                 r[j] = +pa[j] + ((j % 2) ? x : y);
                             }
                     }
-                } else if (pa0 == "R") {
-                    dots = [x, y].concat(pa.slice(1));
-                    res.pop();
-                    res = res.concat(catmullRom2bezier(dots, crz));
-                    r = ["R"].concat(pa.slice(-2));
                 } else if (pa0 == "O") {
                     res.pop();
                     dots = ellipsePath(x, y, pa[1], pa[2]);
@@ -737,9 +683,6 @@ ym.modules.define(
                             d.X = path[1];
                             d.Y = path[2];
                             break;
-                        // case "A":
-                        //     path = ["C"].concat(a2c.apply(0, [d.x, d.y].concat(path.slice(1))));
-                        //     break;
                         case "S":
                             if (pcom == "C" || pcom == "S") { // In "S" case we have to take into account, if the previous command is C/S.
                                 nx = d.x * 2 - d.bx;          // And reflect the previous
@@ -858,45 +801,6 @@ ym.modules.define(
                 pth.curve = pathClone(p);
             }
             return p2 ? [p, p2] : p;
-        }
-
-        // http://schepers.cc/getting-to-the-point
-        function catmullRom2bezier(crp, z) {
-            var d = [];
-            for (var i = 0, iLen = crp.length; iLen - 2 * !z > i; i += 2) {
-                var p = [
-                            {x: +crp[i - 2], y: +crp[i - 1]},
-                            {x: +crp[i],     y: +crp[i + 1]},
-                            {x: +crp[i + 2], y: +crp[i + 3]},
-                            {x: +crp[i + 4], y: +crp[i + 5]}
-                        ];
-                if (z) {
-                    if (!i) {
-                        p[0] = {x: +crp[iLen - 2], y: +crp[iLen - 1]};
-                    } else if (iLen - 4 == i) {
-                        p[3] = {x: +crp[0], y: +crp[1]};
-                    } else if (iLen - 2 == i) {
-                        p[2] = {x: +crp[0], y: +crp[1]};
-                        p[3] = {x: +crp[2], y: +crp[3]};
-                    }
-                } else {
-                    if (iLen - 4 == i) {
-                        p[3] = p[2];
-                    } else if (!i) {
-                        p[0] = {x: +crp[i], y: +crp[i + 1]};
-                    }
-                }
-                d.push(["C",
-                      (-p[0].x + 6 * p[1].x + p[2].x) / 6,
-                      (-p[0].y + 6 * p[1].y + p[2].y) / 6,
-                      (p[1].x + 6 * p[2].x - p[3].x) / 6,
-                      (p[1].y + 6*p[2].y - p[3].y) / 6,
-                      p[2].x,
-                      p[2].y
-                ]);
-            }
-
-            return d;
         }
 
         provide({
