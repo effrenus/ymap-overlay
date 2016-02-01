@@ -811,7 +811,8 @@ ym.modules.define(
                 var a = getSubpathsAtLength(path, to, 1);
                 return from ? getSubpathsAtLength(a, from).end : a;
             },
-            toCubic: path2curve
+            toCubic: path2curve,
+            toString: toString
         });
 
     }

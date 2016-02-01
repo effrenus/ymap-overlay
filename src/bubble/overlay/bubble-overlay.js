@@ -28,8 +28,7 @@ ymaps.modules.define(
 
         defineClass(BubbleOverlay, BaseWithView, {
             addToMap: function () {
-                this._setupView();
-                this._setupInteractiveView();
+                BubbleOverlay.superclass.addToMap.call(this);
                 this._setupDraggable();
             },
 
@@ -37,36 +36,48 @@ ymaps.modules.define(
                 return 'areas';
             },
 
-            onPaneZoomChange: function (zoomDiff) {
-                console.log('zoom changed');
-            },
+            onPaneZoomChange: function () {},
 
             onPaneClientPixelsChange: function () {
                 var layoutOptions = this._view.getLayoutSync().getData().options;
                 layoutOptions.set('position', this.getPane().toClientPixels(this.getGeometry().getCoordinates()));
             },
 
-            // Override, because `_hotspotView.setShape` inside parent method throw error
-            applyShape: function () {},
+            applyGeometryToView: function (view, position) {
+                var clientCoordinates = this.getPane().toClientPixels(position.getCoordinates()),
+                    layoutOptions = this._view.getLayoutSync().getData().options;
 
-            _setupView: function () {
-                this._view = new DomView({
+                layoutOptions.set('position', clientCoordinates);
+            },
+
+            applyShape: function () {
+                // this._pinHotspot.setShape(
+                //     this._pinHotspot._shape.shift(event.get('delta'))
+                // );
+            },
+
+            getViewParams: function () {
+                return {
                     position: this.getPane().fromClientPixels([0, 0]),
-                    options: this.options,
-                    pane: this.resolvePane(this.monitor.get('pane')),
-                    zIndex: this.monitor.get('zIndex'),
                     layout: {
                         options: {
                             position: this.getPane().toClientPixels(this.getGeometry().getCoordinates()),
-                            text: this.getData().text || '',
                             radius: this.options.get('radius', DEFAULT_PIN_RADIUS),
                             backgroundColor: this.options.get('backgroundColor', DEFAULT_PIN_COLOR),
                             viewportSize: this.getMap().container.getSize()
                         },
                         defaultValue: 'drawer#bubbleLayout'
                     }
-                });
+                };
             },
+
+            getViewClass: function () {
+                return DomView;
+            },
+
+            getViewCallbacks: function () {},
+
+            geometryToViewPosition: function () {},
 
             _setupHotspotView: function () {
                 var defaultParams = {
@@ -92,7 +103,7 @@ ymaps.modules.define(
             },
 
             _setupDraggable: function () {
-                this._setupDragger();
+                this._setupDraggers();
                 this._pinEvents.add('mousedown', function (event) {
                     var domEvent = event.get('domEvent');
                     if (domEvent.get('button') == 0) {
@@ -110,20 +121,15 @@ ymaps.modules.define(
                 }, this);
             },
 
-            _setupDragger: function () {
+            _setupDraggers: function () {
                 this._pinDragger = new Dragger();
 
                 this._pinDragger.events
                     .add('move', function (event) {
+                        this.setGeometry(this.getGeometry().shift(event.get('delta')));
                         this._pinHotspot.setShape(
                             this._pinHotspot._shape.shift(event.get('delta'))
                         );
-
-                        var layoutOptions = this._view.getLayoutSync().getData().options;
-                        layoutOptions.set('position', event.get('position'));
-                    }, this)
-                    .add('stop', function (event) {
-
                     }, this);
 
                 this._bubbleDragger = new Dragger();
@@ -135,6 +141,7 @@ ymaps.modules.define(
 
                         var layout = this._view.getLayoutSync();
                         layout.translateBubble(event.get('delta'));
+                        // TODO: set option, and after change invoke rebuild in layout
                         layout.rebuild();
                     }, this);
             },
