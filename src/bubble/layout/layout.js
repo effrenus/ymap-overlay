@@ -97,9 +97,11 @@ ymaps.modules.define(
                  * Bind listeners to option changes
                  */
                 bindOptions: function () {
-                    this.monitor.add('position', function () {
+                    this.monitor.add('position', function (newVal, oldVal) {
+                        var delta = [newVal[0] - oldVal[0], newVal[1] - oldVal[1]];
+
+                        this._translateBubble(delta);
                         this.rebuild();
-                        this._updateBubblePosition();
                     }, this);
                 },
 
@@ -121,7 +123,7 @@ ymaps.modules.define(
                  * Input delta pixels converts to SVG coordinate system
                  * @param  {Number[]} delta Client pixels
                  */
-                translateBubble: function (delta) {
+                _translateBubble: function (delta) {
                     var bounds = this.getData().options.get('bubbleSVGBounds'),
                         transformedDelta = this._toSVGCoords(delta);
 
@@ -186,8 +188,8 @@ ymaps.modules.define(
                     ];
                 },
 
-                _updateBubblePosition: function () {
-                    // update
+                _updateBubblePosition: function (delat) {
+                    var bounds = this.getData().options.get('bubbleSVGBounds');
                 },
 
                 /**
