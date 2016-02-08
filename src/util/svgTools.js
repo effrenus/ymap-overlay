@@ -65,7 +65,7 @@ ymaps.modules.define(
          */
         findPathClosestPoint: function (pathNode, point) {
             var pathLength = pathNode.getTotalLength(),
-                precision = pathLength * 0.125,
+                precision = pathLength * 0.02,
                 best,
                 bestLength,
                 bestDistance = Infinity;
@@ -106,7 +106,6 @@ ymaps.modules.define(
                 }
             }
 
-            best = [best.x, best.y];
             best.distance = Math.sqrt(bestDistance);
             best.lengthToPoint = bestLength;
 

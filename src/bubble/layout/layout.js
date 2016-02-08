@@ -19,7 +19,7 @@ ymaps.modules.define(
             BUBBLE_CLASS = utilCss.addPrefix('bubble'),
 
             PADDING = 50, // padding from nearest point, needed to create bubble tail
-            BUBBLE_PADDINGS = [15, 10], // content paddings inside bubble
+            BUBBLE_PADDINGS = [15, 15], // content paddings inside bubble
             TO_PIN_DISTANCE = 50, // default distance from bubble to point
             TEXT_STYLE = {
                 'font-size': 16,
@@ -219,13 +219,13 @@ ymaps.modules.define(
                  * @return {String} path
                  */
                 _getRectPath: function (bounds) {
-                    return [
+                    return svgPath.toString.call([
                         'M', bounds[0][0], bounds[0][1],
                         'V', bounds[1][1],
                         'H', bounds[1][0],
                         'V', bounds[0][1],
                         'z'
-                    ].join(' ');
+                    ]);
                 },
 
                 /**
@@ -235,14 +235,13 @@ ymaps.modules.define(
                  * @return {String} tail path
                  */
                 _getTailPath: function (tailPeakPoint, len) {
-                    var path = '',
-                        middle = this._svgHiddenPath.getPointAtLength(len),
+                    var path = [],
                         to = this._svgHiddenPath.getPointAtLength(len + PADDING);
 
-                    path += ['L', tailPeakPoint[0], tailPeakPoint[1]].join(' ');
-                    path += ['L', to.x, to.y].join(' ');
+                    path.push(['L', tailPeakPoint[0], tailPeakPoint[1]]);
+                    path.push(['L', to.x, to.y]);
 
-                    return path;
+                    return svgPath.toString.call(path);
                 },
 
                 /**
@@ -265,6 +264,16 @@ ymaps.modules.define(
                             ])
                         ]
                     );
+                },
+
+                _getPath: function () {
+                    var bounds = this.getData().options.get('bubbleSVGBounds'),
+                        coords = this._toSVGCoords(this.getData().options.get('position'));
+
+                    return [
+                        ['M', coords[0], coords[1]],
+                        ['L', ]
+                    ];
                 },
 
                 /**
@@ -321,22 +330,14 @@ ymaps.modules.define(
                         pinSVGCoords = this._toSVGCoords(pinCoords),
                         nearestPoint = svgTools.findPathClosestPoint(this._svgHiddenPath, pinSVGCoords);
 
-                    if (nearestPoint.lengthToPoint < PADDING) {
-                        parts.push(
-                            svgPath.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength)
-                        );
-                        parts.push(
-                            this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint)
-                        );
-                    } else if (nearestPoint.lengthToPoint > pathLength - PADDING) {
-                        parts.push(
-                            svgPath.getSubpath(this._currentPath, PADDING - (pathLength - nearestPoint.lengthToPoint), nearestPoint.lengthToPoint - PADDING)
-                        );
-                        parts.push(
-                            this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint - pathLength)
-                        );
+                    if (nearestPoint.lengthToPoint > 0.95 * pathLength) {
+                        parts.push(svgPath.getSubpath(this._currentPath, 0, pathLength - PADDING));
+                        parts.push(this._getTailPath(pinSVGCoords, pathLength - PADDING / 2));
+                    } else if (nearestPoint.lengthToPoint < 0.05 * pathLength) {
+                        parts.push(svgPath.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength + nearestPoint.lengthToPoint - PADDING));
+                        parts.push(this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint));
                     } else {
-                        parts.push(svgPath.getSubpath(this._currentPath, 0,   nearestPoint.lengthToPoint - PADDING));
+                        parts.push(svgPath.getSubpath(this._currentPath, 0, nearestPoint.lengthToPoint - PADDING));
                         parts.push(this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint));
                         parts.push(svgPath.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength));
                     }
