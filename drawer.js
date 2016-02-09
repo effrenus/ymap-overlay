@@ -150,7 +150,10 @@ ymaps.modules.define(
                     this.monitor.add('position', function (newVal, oldVal) {
                         var delta = [newVal[0] - oldVal[0], newVal[1] - oldVal[1]];
 
-                        this._translateBubble(delta);
+                        // Yet another hack, temporary
+                        if (this.getData().options.get('translateMode', false)) {
+                            this.translateBubble(delta);
+                        }
                         this.rebuild();
                     }, this);
                 },
@@ -173,7 +176,7 @@ ymaps.modules.define(
                  * Input delta pixels converts to SVG coordinate system
                  * @param  {Number[]} delta Client pixels
                  */
-                _translateBubble: function (delta) {
+                translateBubble: function (delta) {
                     var bounds = this.getData().options.get('bubbleSVGBounds'),
                         transformedDelta = this._toSVGCoords(delta);
 
@@ -372,10 +375,10 @@ ymaps.modules.define(
                         pinSVGCoords = this._toSVGCoords(pinCoords),
                         nearestPoint = svgTools.findPathClosestPoint(this._svgHiddenPath, pinSVGCoords);
 
-                    if (nearestPoint.lengthToPoint > 0.95 * pathLength) {
+                    if (nearestPoint.lengthToPoint > 0.95 * pathLength || (pathLength - nearestPoint.lengthToPoint) < PADDING) {
                         parts.push(svgPath.getSubpath(this._currentPath, 0, pathLength - PADDING));
                         parts.push(this._getTailPath(pinSVGCoords, pathLength - PADDING / 2));
-                    } else if (nearestPoint.lengthToPoint < 0.05 * pathLength) {
+                    } else if (nearestPoint.lengthToPoint < 0.05 * pathLength || nearestPoint.lengthToPoint < PADDING) {
                         parts.push(svgPath.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength + nearestPoint.lengthToPoint - PADDING));
                         parts.push(this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint));
                     } else {
@@ -497,11 +500,15 @@ ymaps.modules.define(
                 return 'areas';
             },
 
-            onPaneZoomChange: function () {},
+            onPaneZoomChange: function () {
+            },
 
             onPaneClientPixelsChange: function () {
-                var layoutOptions = this._view.getLayoutSync().getData().options;
-                layoutOptions.set('position', this.getPane().toClientPixels(this.getGeometry().getCoordinates()));
+                var layout = this._view.getLayoutSync();
+                layout.getData().options
+                    .set('translateMode', true)
+                    .set('position', this.getPane().toClientPixels(this.getGeometry().getCoordinates()))
+                    .set('translateMode', false);
             },
 
             applyGeometryToView: function (view, position) {
@@ -601,7 +608,7 @@ ymaps.modules.define(
                         );
 
                         var layout = this._view.getLayoutSync();
-                        layout._translateBubble(event.get('delta'));
+                        layout.translateBubble(event.get('delta'));
                         // TODO: set option, and after change invoke rebuild in layout
                         layout.rebuild();
                     }, this);
