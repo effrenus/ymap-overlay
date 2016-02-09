@@ -2,18 +2,51 @@
 
 
 var ym = {
-	"project": {
-		"preload": [],
-		"namespace": "ymaps",
-		"jsonpPrefix": "",
-		"loadLimit": 500
-	},
-	"ns": {},
-	"env": {},
-	"envCallbacks": []
+    "project": {
+        "preload": [],
+        "namespace": "ymaps",
+        "jsonpPrefix": "",
+        "loadLimit": 500
+    },
+    "ns": {},
+    "env": {},
+    "envCallbacks": []
 };
 
 ym.modules = global['ymaps'].modules;
+
+ym.modules.define(
+    'drawer.bubble.Control',
+    [
+        'util.defineClass',
+        'control.Button',
+        'drawer.bubble.Overlay'
+    ],
+    function (provide, defineClass, Button, BubbleOverlay) {
+        function Control () {
+            Control.superclass.constructor.call(this, parameters);
+            this.listeners = this.events
+                                .group()
+                                .add('select', this._onSelect, this)
+                                .add('deselect', this._onDeSelect, this);
+
+        }
+
+        defineClass(Control, Button, {
+            _onSelect: function () {
+                this.getMap().events.add('click', this._addBubble, this);
+            },
+
+            _onDeSelect: function () {
+                this.getMap().remove('click', this._addBubble, this);
+            },
+
+            _addBubble: function (event) {
+
+            }
+        });
+    }
+);
 
 ymaps.modules.define(
     'drawer.bubble.layout.Layout',
@@ -26,16 +59,17 @@ ymaps.modules.define(
         'util.dom.element',
         'util.css',
         'Monitor',
-        'svg.tools'
+        'util.svgTools',
+        'util.svgPath'
     ],
     function (provide, templateLayoutFactory, PixelGeometry, CircleShape,
-            layoutStorage, domStyle, domElement, utilCss, Monitor, svgTools) {
+            layoutStorage, domStyle, domElement, utilCss, Monitor, svgTools, svgPath) {
 
         var PIN_CLASS = utilCss.addPrefix('pin'),
             BUBBLE_CLASS = utilCss.addPrefix('bubble'),
 
             PADDING = 50, // padding from nearest point, needed to create bubble tail
-            BUBBLE_PADDINGS = [15, 10], // content paddings inside bubble
+            BUBBLE_PADDINGS = [15, 15], // content paddings inside bubble
             TO_PIN_DISTANCE = 50, // default distance from bubble to point
             TEXT_STYLE = {
                 'font-size': 16,
@@ -56,7 +90,7 @@ ymaps.modules.define(
                         coords = options.get('position'),
                         viewportSize = options.get('viewportSize'),
                         backgroundColor = options.get('backgroundColor', '#CCCCCC'),
-                        textString = options.get('text');
+                        textString = this.getData().text;
 
                     domStyle.css(domElement.findByClassName(element, PIN_CLASS), {
                         position: 'absolute',
@@ -64,7 +98,7 @@ ymaps.modules.define(
                         height: radius * 2 + 'px',
                         backgroundColor: backgroundColor
                     });
-                    this.setPinPosition([(coords[0] - radius), (coords[1] - radius)]);
+                    this._setPinPosition([(coords[0] - radius), (coords[1] - radius)]);
 
                     this.monitor = new Monitor(options);
                     this.bindOptions();
@@ -72,9 +106,9 @@ ymaps.modules.define(
                     /**
                      * Set SVG element width/height
                      */
-                    this.setSVGSize([viewportSize[0], viewportSize[1]]);
+                    this._setSVGSize([viewportSize[0], viewportSize[1]]);
 
-                    this._transformMatrix = svgTools.getCoordTransformFactor(this.getSVGElement());
+                    this._transformMatrix = svgTools.getCoordTransformFactor(this._getSVGElement());
 
                     this._hiddenSvgTextNode = this._setupHiddenTextNode(textString);
                     this._textNodeSize = this._getTextBBox();
@@ -105,7 +139,7 @@ ymaps.modules.define(
                         coords = options.get('position'),
                         radius = options.get('radius');
 
-                    this.setPinPosition([(coords[0] - radius), (coords[1] - radius)]);
+                    this._setPinPosition([(coords[0] - radius), (coords[1] - radius)]);
                     this._setupSVGTail(coords);
                 },
 
@@ -113,33 +147,12 @@ ymaps.modules.define(
                  * Bind listeners to option changes
                  */
                 bindOptions: function () {
-                    this.monitor.add('position', function () {
+                    this.monitor.add('position', function (newVal, oldVal) {
+                        var delta = [newVal[0] - oldVal[0], newVal[1] - oldVal[1]];
+
+                        this._translateBubble(delta);
                         this.rebuild();
-                        this._updateBubblePosition();
                     }, this);
-                },
-
-                setPinPosition: function (pos) {
-                    var elm = domElement.findByClassName(this.getElement(), PIN_CLASS);
-                    domStyle.setPosition(elm, pos);
-                },
-
-                /**
-                 * Setup SVG element width, height and viewBox attribute
-                 */
-                setSVGSize: function (size) {
-                    this.getData().options.set('svgContainerSize', size);
-                    // TODO: move to separate method _updateSVGSize (?)
-                    domStyle.setSize(this.getSVGElement(), size);
-                    domStyle.attr(this.getSVGElement(), {viewBox: '0 0 ' + size[0] + ' ' + size[1]});
-                },
-
-                /**
-                 * Return SVG element
-                 * @return {HTMLElement}
-                 */
-                getSVGElement: function () {
-                    return domElement.findByClassName(this.getElement(), BUBBLE_CLASS);
                 },
 
                 /**
@@ -150,32 +163,8 @@ ymaps.modules.define(
                     var bounds = this.getData().options.get('bubbleSVGBounds');
 
                     return [
-                        this.toClientCoords(bounds[0]),
-                        this.toClientCoords(bounds[1])
-                    ];
-                },
-
-                /**
-                 * Convert from client coordinates to SVG coordinate system
-                 * @param  {Number[]} coordinates
-                 * @return {Number[]}
-                 */
-                toSVGCoords: function (coordinates) {
-                    return [
-                        coordinates[0] / this._transformMatrix[0],
-                        coordinates[1] / this._transformMatrix[1]
-                    ];
-                },
-
-                /**
-                 * Convert from SVG coordinates to client
-                 * @param  {Number[]} coordinates
-                 * @return {Number[]}
-                 */
-                toClientCoords: function (coordinates) {
-                    return [
-                        coordinates[0] * this._transformMatrix[0],
-                        coordinates[1] * this._transformMatrix[1]
+                        this._toClientCoords(bounds[0]),
+                        this._toClientCoords(bounds[1])
                     ];
                 },
 
@@ -184,9 +173,9 @@ ymaps.modules.define(
                  * Input delta pixels converts to SVG coordinate system
                  * @param  {Number[]} delta Client pixels
                  */
-                translateBubble: function (delta) {
+                _translateBubble: function (delta) {
                     var bounds = this.getData().options.get('bubbleSVGBounds'),
-                        transformedDelta = this.toSVGCoords(delta);
+                        transformedDelta = this._toSVGCoords(delta);
 
                     this.getData().options.set(
                         'bubbleSVGBounds',
@@ -202,8 +191,55 @@ ymaps.modules.define(
                     this._updateTextPosition();
                 },
 
-                _updateBubblePosition: function () {
-                    // update
+                _setPinPosition: function (pos) {
+                    var elm = domElement.findByClassName(this.getElement(), PIN_CLASS);
+                    domStyle.setPosition(elm, pos);
+                },
+
+                /**
+                 * Setup SVG element width, height and viewBox attribute
+                 */
+                _setSVGSize: function (size) {
+                    this.getData().options.set('svgContainerSize', size);
+                    // TODO: move to separate method _updateSVGSize (?)
+                    domStyle.setSize(this._getSVGElement(), size);
+                    domStyle.attr(this._getSVGElement(), {viewBox: '0 0 ' + size[0] + ' ' + size[1]});
+                },
+
+                /**
+                 * Return SVG element
+                 * @return {HTMLElement}
+                 */
+                _getSVGElement: function () {
+                    return domElement.findByClassName(this.getElement(), BUBBLE_CLASS);
+                },
+
+                /**
+                 * Convert from client coordinates to SVG coordinate system
+                 * @param  {Number[]} coordinates
+                 * @return {Number[]}
+                 */
+                _toSVGCoords: function (coordinates) {
+                    return [
+                        coordinates[0] / this._transformMatrix[0],
+                        coordinates[1] / this._transformMatrix[1]
+                    ];
+                },
+
+                /**
+                 * Convert from SVG coordinates to client
+                 * @param  {Number[]} coordinates
+                 * @return {Number[]}
+                 */
+                _toClientCoords: function (coordinates) {
+                    return [
+                        coordinates[0] * this._transformMatrix[0],
+                        coordinates[1] * this._transformMatrix[1]
+                    ];
+                },
+
+                _updateBubblePosition: function (delat) {
+                    var bounds = this.getData().options.get('bubbleSVGBounds');
                 },
 
                 /**
@@ -224,7 +260,7 @@ ymaps.modules.define(
                     });
 
                     node.textContent = textString;
-                    this.getSVGElement().appendChild(node);
+                    this._getSVGElement().appendChild(node);
 
                     return node;
                 },
@@ -235,13 +271,13 @@ ymaps.modules.define(
                  * @return {String} path
                  */
                 _getRectPath: function (bounds) {
-                    return [
+                    return svgPath.toString.call([
                         'M', bounds[0][0], bounds[0][1],
                         'V', bounds[1][1],
                         'H', bounds[1][0],
                         'V', bounds[0][1],
                         'z'
-                    ].join(' ');
+                    ]);
                 },
 
                 /**
@@ -251,14 +287,13 @@ ymaps.modules.define(
                  * @return {String} tail path
                  */
                 _getTailPath: function (tailPeakPoint, len) {
-                    var path = '',
-                        middle = this._svgHiddenPath.getPointAtLength(len),
+                    var path = [],
                         to = this._svgHiddenPath.getPointAtLength(len + PADDING);
 
-                    path += ['L', tailPeakPoint[0], tailPeakPoint[1]].join(' ');
-                    path += ['L', to.x, to.y].join(' ');
+                    path.push(['L', tailPeakPoint[0], tailPeakPoint[1]]);
+                    path.push(['L', to.x, to.y]);
 
-                    return path;
+                    return svgPath.toString.call(path);
                 },
 
                 /**
@@ -274,8 +309,8 @@ ymaps.modules.define(
                     this.getData().options.set(
                         'bubbleSVGBounds',
                         [
-                            this.toSVGCoords([coords[0] - (width / 2), coords[1] - distanceToPin]),
-                            this.toSVGCoords([
+                            this._toSVGCoords([coords[0] - (width / 2), coords[1] - distanceToPin]),
+                            this._toSVGCoords([
                                 coords[0] + width - (width / 2),
                                 coords[1] - height - distanceToPin
                             ])
@@ -309,7 +344,7 @@ ymaps.modules.define(
                             d: path
                         }
                     });
-                    this.getSVGElement().appendChild(this._svgPathElement);
+                    this._getSVGElement().appendChild(this._svgPathElement);
                 },
 
                 /**
@@ -322,7 +357,7 @@ ymaps.modules.define(
                     }
                     var textBBox = this._hiddenSvgTextNode.getBBox();
 
-                    return this.toClientCoords([textBBox.width, textBBox.height]);
+                    return this._toClientCoords([textBBox.width, textBBox.height]);
                 },
 
                 /**
@@ -334,30 +369,22 @@ ymaps.modules.define(
                 _setupSVGTail: function (pinCoords) {
                     var parts = [],
                         pathLength = this._svgHiddenPath.getTotalLength(),
-                        pinSVGCoords = this.toSVGCoords(pinCoords),
+                        pinSVGCoords = this._toSVGCoords(pinCoords),
                         nearestPoint = svgTools.findPathClosestPoint(this._svgHiddenPath, pinSVGCoords);
 
-                    if (nearestPoint.lengthToPoint < PADDING) {
-                        parts.push(
-                            Snap.path.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength)
-                        );
-                        parts.push(
-                            this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint)
-                        );
-                    } else if (nearestPoint.lengthToPoint > pathLength - PADDING) {
-                        parts.push(
-                            Snap.path.getSubpath(this._currentPath, PADDING - (pathLength - nearestPoint.lengthToPoint), nearestPoint.lengthToPoint - PADDING)
-                        );
-                        parts.push(
-                            this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint - pathLength)
-                        );
-                    } else {
-                        parts.push(Snap.path.getSubpath(this._currentPath, 0,   nearestPoint.lengthToPoint - PADDING));
+                    if (nearestPoint.lengthToPoint > 0.95 * pathLength) {
+                        parts.push(svgPath.getSubpath(this._currentPath, 0, pathLength - PADDING));
+                        parts.push(this._getTailPath(pinSVGCoords, pathLength - PADDING / 2));
+                    } else if (nearestPoint.lengthToPoint < 0.05 * pathLength) {
+                        parts.push(svgPath.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength + nearestPoint.lengthToPoint - PADDING));
                         parts.push(this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint));
-                        parts.push(Snap.path.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength));
+                    } else {
+                        parts.push(svgPath.getSubpath(this._currentPath, 0, nearestPoint.lengthToPoint - PADDING));
+                        parts.push(this._getTailPath(pinSVGCoords, nearestPoint.lengthToPoint));
+                        parts.push(svgPath.getSubpath(this._currentPath, nearestPoint.lengthToPoint + PADDING, pathLength));
                     }
 
-                    this._svgPathElement.setAttribute('d', parts.join());
+                    this._svgPathElement.setAttribute('d', svgPath.toString.call(parts));
                 },
 
                 /**
@@ -378,7 +405,7 @@ ymaps.modules.define(
                     });
                     this._textSVGNode.textContent = textString;
 
-                    this.getSVGElement().appendChild(this._textSVGNode);
+                    this._getSVGElement().appendChild(this._textSVGNode);
                 },
 
                 /**
@@ -390,7 +417,7 @@ ymaps.modules.define(
                     contentWidth = contentWidth / this._transformMatrix[0];
 
                     var node = this._hiddenSvgTextNode,
-                        textString = this.getData().options.get('text'),
+                        textString = this.getData().text,
                         len = node.getNumberOfChars(),
                         pivot = Math.floor(len / 2),
                         beforeDir = node.getSubStringLength(0, pivot) > contentWidth ? -1 : 1,
@@ -450,8 +477,8 @@ ymaps.modules.define(
         'drawer.bubble.layout.Layout'
     ],
     function (provide, defineClass, BaseWithView, DomView, RectangleShape,
-        RectanglePixelGeometry, CircleShape,
-        CirclePixelGeometry, HotspotView, Dragger, extend, EventManager) {
+        RectanglePixelGeometry, CircleShape, CirclePixelGeometry,
+        HotspotView, Dragger, extend, EventManager) {
 
         var DEFAULT_PIN_RADIUS = 10,
             DEFAULT_PIN_COLOR = '#555555';
@@ -462,8 +489,7 @@ ymaps.modules.define(
 
         defineClass(BubbleOverlay, BaseWithView, {
             addToMap: function () {
-                this._setupView();
-                this._setupInteractiveView();
+                BubbleOverlay.superclass.addToMap.call(this);
                 this._setupDraggable();
             },
 
@@ -471,36 +497,48 @@ ymaps.modules.define(
                 return 'areas';
             },
 
-            onPaneZoomChange: function (zoomDiff) {
-                console.log('zoom changed');
-            },
+            onPaneZoomChange: function () {},
 
             onPaneClientPixelsChange: function () {
                 var layoutOptions = this._view.getLayoutSync().getData().options;
                 layoutOptions.set('position', this.getPane().toClientPixels(this.getGeometry().getCoordinates()));
             },
 
-            // Override, because `_hotspotView.setShape` inside parent method throw error
-            applyShape: function () {},
+            applyGeometryToView: function (view, position) {
+                var clientCoordinates = this.getPane().toClientPixels(position.getCoordinates()),
+                    layoutOptions = this._view.getLayoutSync().getData().options;
 
-            _setupView: function () {
-                this._view = new DomView({
+                layoutOptions.set('position', clientCoordinates);
+            },
+
+            applyShape: function () {
+                // this._pinHotspot.setShape(
+                //     this._pinHotspot._shape.shift(event.get('delta'))
+                // );
+            },
+
+            getViewParams: function () {
+                return {
                     position: this.getPane().fromClientPixels([0, 0]),
-                    options: this.options,
-                    pane: this.resolvePane(this.monitor.get('pane')),
-                    zIndex: this.monitor.get('zIndex'),
                     layout: {
                         options: {
                             position: this.getPane().toClientPixels(this.getGeometry().getCoordinates()),
-                            text: this.getData().text || '',
                             radius: this.options.get('radius', DEFAULT_PIN_RADIUS),
                             backgroundColor: this.options.get('backgroundColor', DEFAULT_PIN_COLOR),
                             viewportSize: this.getMap().container.getSize()
                         },
                         defaultValue: 'drawer#bubbleLayout'
                     }
-                });
+                };
             },
+
+            getViewClass: function () {
+                return DomView;
+            },
+
+            getViewCallbacks: function () {},
+
+            geometryToViewPosition: function () {},
 
             _setupHotspotView: function () {
                 var defaultParams = {
@@ -526,7 +564,7 @@ ymaps.modules.define(
             },
 
             _setupDraggable: function () {
-                this._setupDragger();
+                this._setupDraggers();
                 this._pinEvents.add('mousedown', function (event) {
                     var domEvent = event.get('domEvent');
                     if (domEvent.get('button') == 0) {
@@ -544,20 +582,15 @@ ymaps.modules.define(
                 }, this);
             },
 
-            _setupDragger: function () {
+            _setupDraggers: function () {
                 this._pinDragger = new Dragger();
 
                 this._pinDragger.events
                     .add('move', function (event) {
+                        this.setGeometry(this.getGeometry().shift(event.get('delta')));
                         this._pinHotspot.setShape(
                             this._pinHotspot._shape.shift(event.get('delta'))
                         );
-
-                        var layoutOptions = this._view.getLayoutSync().getData().options;
-                        layoutOptions.set('position', event.get('position'));
-                    }, this)
-                    .add('stop', function (event) {
-
                     }, this);
 
                 this._bubbleDragger = new Dragger();
@@ -568,7 +601,8 @@ ymaps.modules.define(
                         );
 
                         var layout = this._view.getLayoutSync();
-                        layout.translateBubble(event.get('delta'));
+                        layout._translateBubble(event.get('delta'));
+                        // TODO: set option, and after change invoke rebuild in layout
                         layout.rebuild();
                     }, this);
             },
@@ -600,7 +634,7 @@ ymaps.modules.define(
 );
 
 /**
- * Tests=)
+ * Coming soon
  */
 
 ymaps.modules.define('drawer.freeline.Canvas', [
@@ -760,12 +794,11 @@ ymaps.modules.define(
 );
 
 /**
- * @fileOverview Excerpt from Snap.svg library to work with parhs
+ * @fileOverview Excerpt from Snap.svg library to work with paths
  * @see https://github.com/adobe-webplatform/Snap.svg
  */
 ym.modules.define(
-    'snap.path',
-    [],
+    'util.svgPath',
     function (provide) {
         var has = "hasOwnProperty",
             p2s = /,?([a-z]),?/gi,
@@ -797,6 +830,11 @@ ym.modules.define(
                 }
             });
             return p[ps];
+        }
+        function repush(array, item) {
+            for (var i = 0, ii = array.length; i < ii; i++) if (array[i] === item) {
+                return array.push(array.splice(i, 1)[0]);
+            }
         }
         function cacher(f, scope, postprocessor) {
             function newf() {
@@ -839,7 +877,7 @@ ym.modules.define(
             }
             return res;
         }
-        function parsePathString (pathString) {
+        function parsePathString(pathString) {
             if (!pathString) {
                 return null;
             }
@@ -881,150 +919,6 @@ ym.modules.define(
             data.toString = toString;
             pth.arr = pathClone(data);
             return data;
-        }
-        function $(el, attr) {
-            if (attr) {
-                if (el == "#text") {
-                    el = glob.doc.createTextNode(attr.text || attr["#text"] || "");
-                }
-                if (el == "#comment") {
-                    el = glob.doc.createComment(attr.text || attr["#text"] || "");
-                }
-                if (typeof el == "string") {
-                    el = $(el);
-                }
-                if (typeof attr == "string") {
-                    if (el.nodeType == 1) {
-                        if (attr.substring(0, 6) == "xlink:") {
-                            return el.getAttributeNS(xlink, attr.substring(6));
-                        }
-                        if (attr.substring(0, 4) == "xml:") {
-                            return el.getAttributeNS(xmlns, attr.substring(4));
-                        }
-                        return el.getAttribute(attr);
-                    } else if (attr == "text") {
-                        return el.nodeValue;
-                    } else {
-                        return null;
-                    }
-                }
-                if (el.nodeType == 1) {
-                    for (var key in attr) if (attr[has](key)) {
-                        var val = Str(attr[key]);
-                        if (val) {
-                            if (key.substring(0, 6) == "xlink:") {
-                                el.setAttributeNS(xlink, key.substring(6), val);
-                            } else if (key.substring(0, 4) == "xml:") {
-                                el.setAttributeNS(xmlns, key.substring(4), val);
-                            } else {
-                                el.setAttribute(key, val);
-                            }
-                        } else {
-                            el.removeAttribute(key);
-                        }
-                    }
-                } else if ("text" in attr) {
-                    el.nodeValue = attr.text;
-                }
-            } else {
-                el = glob.doc.createElementNS(xmlns, el);
-            }
-            return el;
-        }
-        function getSomeSVG(el) {
-            return el.node.ownerSVGElement && wrap(el.node.ownerSVGElement) || Snap.select("svg");
-        }
-        function unit2px(el, name, value) {
-            var svg = getSomeSVG(el).node,
-                out = {},
-                mgr = svg.querySelector(".svg---mgr");
-            if (!mgr) {
-                mgr = $("rect");
-                $(mgr, {x: -9e9, y: -9e9, width: 10, height: 10, "class": "svg---mgr", fill: "none"});
-                svg.appendChild(mgr);
-            }
-            function getW(val) {
-                if (val == null) {
-                    return E;
-                }
-                if (val == +val) {
-                    return val;
-                }
-                $(mgr, {width: val});
-                try {
-                    return mgr.getBBox().width;
-                } catch (e) {
-                    return 0;
-                }
-            }
-            function getH(val) {
-                if (val == null) {
-                    return E;
-                }
-                if (val == +val) {
-                    return val;
-                }
-                $(mgr, {height: val});
-                try {
-                    return mgr.getBBox().height;
-                } catch (e) {
-                    return 0;
-                }
-            }
-            function set(nam, f) {
-                if (name == null) {
-                    out[nam] = f(el.attr(nam) || 0);
-                } else if (nam == name) {
-                    out = f(value == null ? el.attr(nam) || 0 : value);
-                }
-            }
-            switch (el.type) {
-                case "rect":
-                    set("rx", getW);
-                    set("ry", getH);
-                case "image":
-                    set("width", getW);
-                    set("height", getH);
-                case "text":
-                    set("x", getW);
-                    set("y", getH);
-                break;
-                case "circle":
-                    set("cx", getW);
-                    set("cy", getH);
-                    set("r", getW);
-                break;
-                case "ellipse":
-                    set("cx", getW);
-                    set("cy", getH);
-                    set("rx", getW);
-                    set("ry", getH);
-                break;
-                case "line":
-                    set("x1", getW);
-                    set("x2", getW);
-                    set("y1", getH);
-                    set("y2", getH);
-                break;
-                case "marker":
-                    set("refX", getW);
-                    set("markerWidth", getW);
-                    set("refY", getH);
-                    set("markerHeight", getH);
-                break;
-                case "radialGradient":
-                    set("fx", getW);
-                    set("fy", getH);
-                break;
-                case "tspan":
-                    set("dx", getW);
-                    set("dy", getH);
-                break;
-                default:
-                    set(name, getW);
-            }
-            svg.removeChild(mgr);
-            return out;
         }
         function box(x, y, width, height) {
             if (x == null) {
@@ -1151,7 +1045,6 @@ ym.modules.define(
                 cx = t1 * c2x + t * p2x,
                 cy = t1 * c2y + t * p2y,
                 alpha = (90 - math.atan2(mx - nx, my - ny) * 180 / PI);
-            // (mx > nx || my < ny) && (alpha += 180);
             return {
                 x: x,
                 y: y,
@@ -1274,9 +1167,6 @@ ym.modules.define(
         function inter(bez1, bez2) {
             return interHelper(bez1, bez2);
         }
-        function interCount(bez1, bez2) {
-            return interHelper(bez1, bez2, 1);
-        }
         function interHelper(bez1, bez2, justCount) {
             var bbox1 = bezierBBox(bez1),
                 bbox2 = bezierBBox(bez2);
@@ -1332,107 +1222,6 @@ ym.modules.define(
             }
             return res;
         }
-        function pathIntersection(path1, path2) {
-            return interPathHelper(path1, path2);
-        }
-        function pathIntersectionNumber(path1, path2) {
-            return interPathHelper(path1, path2, 1);
-        }
-        function interPathHelper(path1, path2, justCount) {
-            path1 = path2curve(path1);
-            path2 = path2curve(path2);
-            var x1, y1, x2, y2, x1m, y1m, x2m, y2m, bez1, bez2,
-                res = justCount ? 0 : [];
-            for (var i = 0, ii = path1.length; i < ii; i++) {
-                var pi = path1[i];
-                if (pi[0] == "M") {
-                    x1 = x1m = pi[1];
-                    y1 = y1m = pi[2];
-                } else {
-                    if (pi[0] == "C") {
-                        bez1 = [x1, y1].concat(pi.slice(1));
-                        x1 = bez1[6];
-                        y1 = bez1[7];
-                    } else {
-                        bez1 = [x1, y1, x1, y1, x1m, y1m, x1m, y1m];
-                        x1 = x1m;
-                        y1 = y1m;
-                    }
-                    for (var j = 0, jj = path2.length; j < jj; j++) {
-                        var pj = path2[j];
-                        if (pj[0] == "M") {
-                            x2 = x2m = pj[1];
-                            y2 = y2m = pj[2];
-                        } else {
-                            if (pj[0] == "C") {
-                                bez2 = [x2, y2].concat(pj.slice(1));
-                                x2 = bez2[6];
-                                y2 = bez2[7];
-                            } else {
-                                bez2 = [x2, y2, x2, y2, x2m, y2m, x2m, y2m];
-                                x2 = x2m;
-                                y2 = y2m;
-                            }
-                            var intr = interHelper(bez1, bez2, justCount);
-                            if (justCount) {
-                                res += intr;
-                            } else {
-                                for (var k = 0, kk = intr.length; k < kk; k++) {
-                                    intr[k].segment1 = i;
-                                    intr[k].segment2 = j;
-                                    intr[k].bez1 = bez1;
-                                    intr[k].bez2 = bez2;
-                                }
-                                res = res.concat(intr);
-                            }
-                        }
-                    }
-                }
-            }
-            return res;
-        }
-        function isPointInsidePath(path, x, y) {
-            var bbox = pathBBox(path);
-            return isPointInsideBBox(bbox, x, y) &&
-                   interPathHelper(path, [["M", x, y], ["H", bbox.x2 + 10]], 1) % 2 == 1;
-        }
-        function pathBBox(path) {
-            var pth = paths(path);
-            if (pth.bbox) {
-                return clone(pth.bbox);
-            }
-            if (!path) {
-                return box();
-            }
-            path = path2curve(path);
-            var x = 0,
-                y = 0,
-                X = [],
-                Y = [],
-                p;
-            for (var i = 0, ii = path.length; i < ii; i++) {
-                p = path[i];
-                if (p[0] == "M") {
-                    x = p[1];
-                    y = p[2];
-                    X.push(x);
-                    Y.push(y);
-                } else {
-                    var dim = curveDim(x, y, p[1], p[2], p[3], p[4], p[5], p[6]);
-                    X = X.concat(dim.min.x, dim.max.x);
-                    Y = Y.concat(dim.min.y, dim.max.y);
-                    x = p[5];
-                    y = p[6];
-                }
-            }
-            var xmin = mmin.apply(0, X),
-                ymin = mmin.apply(0, Y),
-                xmax = mmax.apply(0, X),
-                ymax = mmax.apply(0, Y),
-                bb = box(xmin, ymin, xmax - xmin, ymax - ymin);
-            pth.bbox = clone(bb);
-            return bb;
-        }
         function rectPath(x, y, w, h, r) {
             if (r) {
                 return [
@@ -1477,120 +1266,6 @@ ym.modules.define(
                 ];
             }
             res.toString = toString;
-            return res;
-        }
-        var getPath = {
-            path: function (el) {
-                return el.attr("path");
-            },
-            circle: function (el) {
-                var attr = unit2px(el);
-                return ellipsePath(attr.cx, attr.cy, attr.r);
-            },
-            ellipse: function (el) {
-                var attr = unit2px(el);
-                return ellipsePath(attr.cx || 0, attr.cy || 0, attr.rx, attr.ry);
-            },
-            rect: function (el) {
-                var attr = unit2px(el);
-                return rectPath(attr.x || 0, attr.y || 0, attr.width, attr.height, attr.rx, attr.ry);
-            },
-            image: function (el) {
-                var attr = unit2px(el);
-                return rectPath(attr.x || 0, attr.y || 0, attr.width, attr.height);
-            },
-            line: function (el) {
-                return "M" + [el.attr("x1") || 0, el.attr("y1") || 0, el.attr("x2"), el.attr("y2")];
-            },
-            polyline: function (el) {
-                return "M" + el.attr("points");
-            },
-            polygon: function (el) {
-                return "M" + el.attr("points") + "z";
-            },
-            deflt: function (el) {
-                var bbox = el.node.getBBox();
-                return rectPath(bbox.x, bbox.y, bbox.width, bbox.height);
-            }
-        };
-        function pathToRelative(pathArray) {
-            var pth = paths(pathArray),
-                lowerCase = String.prototype.toLowerCase;
-            if (pth.rel) {
-                return pathClone(pth.rel);
-            }
-            if (!is(pathArray, "array") || !is(pathArray && pathArray[0], "array")) {
-                pathArray = parsePathString(pathArray);
-            }
-            var res = [],
-                x = 0,
-                y = 0,
-                mx = 0,
-                my = 0,
-                start = 0;
-            if (pathArray[0][0] == "M") {
-                x = pathArray[0][1];
-                y = pathArray[0][2];
-                mx = x;
-                my = y;
-                start++;
-                res.push(["M", x, y]);
-            }
-            for (var i = start, ii = pathArray.length; i < ii; i++) {
-                var r = res[i] = [],
-                    pa = pathArray[i];
-                if (pa[0] != lowerCase.call(pa[0])) {
-                    r[0] = lowerCase.call(pa[0]);
-                    switch (r[0]) {
-                        case "a":
-                            r[1] = pa[1];
-                            r[2] = pa[2];
-                            r[3] = pa[3];
-                            r[4] = pa[4];
-                            r[5] = pa[5];
-                            r[6] = +(pa[6] - x).toFixed(3);
-                            r[7] = +(pa[7] - y).toFixed(3);
-                            break;
-                        case "v":
-                            r[1] = +(pa[1] - y).toFixed(3);
-                            break;
-                        case "m":
-                            mx = pa[1];
-                            my = pa[2];
-                        default:
-                            for (var j = 1, jj = pa.length; j < jj; j++) {
-                                r[j] = +(pa[j] - ((j % 2) ? x : y)).toFixed(3);
-                            }
-                    }
-                } else {
-                    r = res[i] = [];
-                    if (pa[0] == "m") {
-                        mx = pa[1] + x;
-                        my = pa[2] + y;
-                    }
-                    for (var k = 0, kk = pa.length; k < kk; k++) {
-                        res[i][k] = pa[k];
-                    }
-                }
-                var len = res[i].length;
-                switch (res[i][0]) {
-                    case "z":
-                        x = mx;
-                        y = my;
-                        break;
-                    case "h":
-                        x += +res[i][len - 1];
-                        break;
-                    case "v":
-                        y += +res[i][len - 1];
-                        break;
-                    default:
-                        x += +res[i][len - 2];
-                        y += +res[i][len - 1];
-                }
-            }
-            res.toString = toString;
-            pth.rel = pathClone(res);
             return res;
         }
         function pathToAbsolute(pathArray) {
@@ -1645,15 +1320,6 @@ ym.modules.define(
                         case "H":
                             r[1] = +pa[1] + x;
                             break;
-                        case "R":
-                            var dots = [x, y].concat(pa.slice(1));
-                            for (var j = 2, jj = dots.length; j < jj; j++) {
-                                dots[j] = +dots[j] + x;
-                                dots[++j] = +dots[j] + y;
-                            }
-                            res.pop();
-                            res = res.concat(catmullRom2bezier(dots, crz));
-                            break;
                         case "O":
                             res.pop();
                             dots = ellipsePath(x, y, pa[1], pa[2]);
@@ -1673,11 +1339,6 @@ ym.modules.define(
                                 r[j] = +pa[j] + ((j % 2) ? x : y);
                             }
                     }
-                } else if (pa0 == "R") {
-                    dots = [x, y].concat(pa.slice(1));
-                    res.pop();
-                    res = res.concat(catmullRom2bezier(dots, crz));
-                    r = ["R"].concat(pa.slice(-2));
                 } else if (pa0 == "O") {
                     res.pop();
                     dots = ellipsePath(x, y, pa[1], pa[2]);
@@ -1733,107 +1394,8 @@ ym.modules.define(
                     y2
                 ];
         }
-        function a2c(x1, y1, rx, ry, angle, large_arc_flag, sweep_flag, x2, y2, recursive) {
-            // for more information of where this math came from visit:
-            // http://www.w3.org/TR/SVG11/implnote.html#ArcImplementationNotes
-            var _120 = PI * 120 / 180,
-                rad = PI / 180 * (+angle || 0),
-                res = [],
-                xy,
-                rotate = cacher(function (x, y, rad) {
-                    var X = x * math.cos(rad) - y * math.sin(rad),
-                        Y = x * math.sin(rad) + y * math.cos(rad);
-                    return {x: X, y: Y};
-                });
-            if (!recursive) {
-                xy = rotate(x1, y1, -rad);
-                x1 = xy.x;
-                y1 = xy.y;
-                xy = rotate(x2, y2, -rad);
-                x2 = xy.x;
-                y2 = xy.y;
-                var cos = math.cos(PI / 180 * angle),
-                    sin = math.sin(PI / 180 * angle),
-                    x = (x1 - x2) / 2,
-                    y = (y1 - y2) / 2;
-                var h = (x * x) / (rx * rx) + (y * y) / (ry * ry);
-                if (h > 1) {
-                    h = math.sqrt(h);
-                    rx = h * rx;
-                    ry = h * ry;
-                }
-                var rx2 = rx * rx,
-                    ry2 = ry * ry,
-                    k = (large_arc_flag == sweep_flag ? -1 : 1) *
-                        math.sqrt(abs((rx2 * ry2 - rx2 * y * y - ry2 * x * x) / (rx2 * y * y + ry2 * x * x))),
-                    cx = k * rx * y / ry + (x1 + x2) / 2,
-                    cy = k * -ry * x / rx + (y1 + y2) / 2,
-                    f1 = math.asin(((y1 - cy) / ry).toFixed(9)),
-                    f2 = math.asin(((y2 - cy) / ry).toFixed(9));
-
-                f1 = x1 < cx ? PI - f1 : f1;
-                f2 = x2 < cx ? PI - f2 : f2;
-                f1 < 0 && (f1 = PI * 2 + f1);
-                f2 < 0 && (f2 = PI * 2 + f2);
-                if (sweep_flag && f1 > f2) {
-                    f1 = f1 - PI * 2;
-                }
-                if (!sweep_flag && f2 > f1) {
-                    f2 = f2 - PI * 2;
-                }
-            } else {
-                f1 = recursive[0];
-                f2 = recursive[1];
-                cx = recursive[2];
-                cy = recursive[3];
-            }
-            var df = f2 - f1;
-            if (abs(df) > _120) {
-                var f2old = f2,
-                    x2old = x2,
-                    y2old = y2;
-                f2 = f1 + _120 * (sweep_flag && f2 > f1 ? 1 : -1);
-                x2 = cx + rx * math.cos(f2);
-                y2 = cy + ry * math.sin(f2);
-                res = a2c(x2, y2, rx, ry, angle, 0, sweep_flag, x2old, y2old, [f2, f2old, cx, cy]);
-            }
-            df = f2 - f1;
-            var c1 = math.cos(f1),
-                s1 = math.sin(f1),
-                c2 = math.cos(f2),
-                s2 = math.sin(f2),
-                t = math.tan(df / 4),
-                hx = 4 / 3 * rx * t,
-                hy = 4 / 3 * ry * t,
-                m1 = [x1, y1],
-                m2 = [x1 + hx * s1, y1 - hy * c1],
-                m3 = [x2 + hx * s2, y2 - hy * c2],
-                m4 = [x2, y2];
-            m2[0] = 2 * m1[0] - m2[0];
-            m2[1] = 2 * m1[1] - m2[1];
-            if (recursive) {
-                return [m2, m3, m4].concat(res);
-            } else {
-                res = [m2, m3, m4].concat(res).join().split(",");
-                var newres = [];
-                for (var i = 0, ii = res.length; i < ii; i++) {
-                    newres[i] = i % 2 ? rotate(res[i - 1], res[i], rad).y : rotate(res[i], res[i + 1], rad).x;
-                }
-                return newres;
-            }
-        }
-        function findDotAtSegment(p1x, p1y, c1x, c1y, c2x, c2y, p2x, p2y, t) {
-            var t1 = 1 - t;
-            return {
-                x: pow(t1, 3) * p1x + pow(t1, 2) * 3 * t * c1x + t1 * 3 * t * t * c2x + pow(t, 3) * p2x,
-                y: pow(t1, 3) * p1y + pow(t1, 2) * 3 * t * c1y + t1 * 3 * t * t * c2y + pow(t, 3) * p2y
-            };
-        }
 
         // Returns bounding box of cubic bezier curve.
-        // Source: http://blog.hackers-cafe.net/2009/06/how-to-calculate-bezier-curves-bounding.html
-        // Original version: NISHIO Hirokazu
-        // Modifications: https://github.com/timo22345
         function curveDim(x0, y0, x1, y1, x2, y2, x3, y3) {
             var tvalues = [],
                 bounds = [[], []],
@@ -1915,9 +1477,6 @@ ym.modules.define(
                         case "M":
                             d.X = path[1];
                             d.Y = path[2];
-                            break;
-                        case "A":
-                            path = ["C"].concat(a2c.apply(0, [d.x, d.y].concat(path.slice(1))));
                             break;
                         case "S":
                             if (pcom == "C" || pcom == "S") { // In "S" case we have to take into account, if the previous command is C/S.
@@ -2038,94 +1597,31 @@ ym.modules.define(
             }
             return p2 ? [p, p2] : p;
         }
-        function mapPath(path, matrix) {
-            if (!matrix) {
-                return path;
-            }
-            var x, y, i, j, ii, jj, pathi;
-            path = path2curve(path);
-            for (i = 0, ii = path.length; i < ii; i++) {
-                pathi = path[i];
-                for (j = 1, jj = pathi.length; j < jj; j += 2) {
-                    x = matrix.x(pathi[j], pathi[j + 1]);
-                    y = matrix.y(pathi[j], pathi[j + 1]);
-                    pathi[j] = x;
-                    pathi[j + 1] = y;
-                }
-            }
-            return path;
-        }
-
-        // http://schepers.cc/getting-to-the-point
-        function catmullRom2bezier(crp, z) {
-            var d = [];
-            for (var i = 0, iLen = crp.length; iLen - 2 * !z > i; i += 2) {
-                var p = [
-                            {x: +crp[i - 2], y: +crp[i - 1]},
-                            {x: +crp[i],     y: +crp[i + 1]},
-                            {x: +crp[i + 2], y: +crp[i + 3]},
-                            {x: +crp[i + 4], y: +crp[i + 5]}
-                        ];
-                if (z) {
-                    if (!i) {
-                        p[0] = {x: +crp[iLen - 2], y: +crp[iLen - 1]};
-                    } else if (iLen - 4 == i) {
-                        p[3] = {x: +crp[0], y: +crp[1]};
-                    } else if (iLen - 2 == i) {
-                        p[2] = {x: +crp[0], y: +crp[1]};
-                        p[3] = {x: +crp[2], y: +crp[3]};
-                    }
-                } else {
-                    if (iLen - 4 == i) {
-                        p[3] = p[2];
-                    } else if (!i) {
-                        p[0] = {x: +crp[i], y: +crp[i + 1]};
-                    }
-                }
-                d.push(["C",
-                      (-p[0].x + 6 * p[1].x + p[2].x) / 6,
-                      (-p[0].y + 6 * p[1].y + p[2].y) / 6,
-                      (p[1].x + 6 * p[2].x - p[3].x) / 6,
-                      (p[1].y + 6*p[2].y - p[3].y) / 6,
-                      p[2].x,
-                      p[2].y
-                ]);
-            }
-
-            return d;
-        }
 
         provide({
-            getTotalLength: getTotalLength,
-            getPointAtLength: getPointAtLength,
             getSubpath: function (path, from, to) {
-                if (this.getTotalLength(path) - to < 1e-6) {
+                if (getTotalLength(path) - to < 1e-6) {
                     return getSubpathsAtLength(path, from).end;
                 }
                 var a = getSubpathsAtLength(path, to, 1);
                 return from ? getSubpathsAtLength(a, from).end : a;
             },
-            findDotsAtSegment: findDotsAtSegment,
-            bezierBBox: bezierBBox,
-            isPointInsideBBox: isPointInsideBBox,
-            isBBoxIntersect: isBBoxIntersect,
-            intersection: pathIntersection,
-            intersectionNumber: pathIntersectionNumber,
-            isPointInside: isPointInsidePath,
-            getBBox: pathBBox,
-            get: getPath,
-            toRelative: pathToRelative,
-            toAbsolute: pathToAbsolute,
             toCubic: path2curve,
-            map: mapPath,
-            toString: toString,
-            clone: pathClone
+            toString: toString
         });
 
     }
 );
 
-ymaps.modules.define('svg.tools', function (provide) {
+/**
+ * @fileOverview
+ */
+ymaps.modules.define(
+    'util.svgTools',
+    [
+        'util.svgPath'
+    ],
+    function (provide, svgPath) {
 
     provide({
         /**
@@ -2160,7 +1656,7 @@ ymaps.modules.define('svg.tools', function (provide) {
          * @return {Mixed[]}
          */
         parsePath: function (pathNode) {
-            return Snap.path.toCubic(pathNode.getAttribute('d'));
+            return svgPath.toCubic(pathNode.getAttribute('d'));
         },
 
         scale: function (path, x, y) {
@@ -2184,13 +1680,23 @@ ymaps.modules.define('svg.tools', function (provide) {
          */
         findPathClosestPoint: function (pathNode, point) {
             var pathLength = pathNode.getTotalLength(),
-                precision = pathLength / pathNode.pathSegList.numberOfItems * 0.125,
+                precision = pathLength * 0.02,
                 best,
                 bestLength,
                 bestDistance = Infinity;
 
+            /**
+             * Point coords on path at specific length
+             * @param  {Number} len
+             * @return {Number}
+             */
+            function getPointAtLength (len) {
+                var coord = pathNode.getPointAtLength(len);
+                return [coord.x, coord.y];
+            }
+
             for (var scan, scanLength = 0, scanDistance; scanLength <= pathLength; scanLength += precision) {
-                if ((scanDistance = getDistance(scan = pathNode.getPointAtLength(scanLength), point)) < bestDistance) {
+                if ((scanDistance = getDistance(scan = getPointAtLength(scanLength), point)) < bestDistance) {
                     best = scan, bestLength = scanLength, bestDistance = scanDistance;
                 }
             }
@@ -2205,17 +1711,16 @@ ymaps.modules.define('svg.tools', function (provide) {
                     afterDistance;
 
                 if ((beforeLength = bestLength - precision) >= 0 &&
-                    (beforeDistance = getDistance(before = pathNode.getPointAtLength(beforeLength), point)) < bestDistance) {
+                    (beforeDistance = getDistance(before = getPointAtLength(beforeLength), point)) < bestDistance) {
                     best = before, bestLength = beforeLength, bestDistance = beforeDistance;
                 } else if ((afterLength = bestLength + precision) <= pathLength &&
-                            (afterDistance = getDistance(after = pathNode.getPointAtLength(afterLength), point)) < bestDistance) {
+                            (afterDistance = getDistance(after = getPointAtLength(afterLength), point)) < bestDistance) {
                     best = after, bestLength = afterLength, bestDistance = afterDistance;
                 } else {
                     precision *= 0.5;
                 }
             }
 
-            best = [best.x, best.y];
             best.distance = Math.sqrt(bestDistance);
             best.lengthToPoint = bestLength;
 
@@ -2225,14 +1730,13 @@ ymaps.modules.define('svg.tools', function (provide) {
 
     /**
      * Calculate distance between points within SVG
-     * TODO: Send p1 as array
-     * @param  {Object} p1 {x, y}
+     * @param  {Number[]} p1 [x, y]
      * @param  {Number[]} p2 [x, y]
      * @return {Number}
      */
     function getDistance (p1, p2) {
-        var dx = p1.x - p2[0],
-            dy = p1.y - p2[1];
+        var dx = p1[0] - p2[0],
+            dy = p1[1] - p2[1];
 
         return dx * dx + dy * dy;
     }

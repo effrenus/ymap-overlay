@@ -11,12 +11,11 @@
         }
     </style>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/snap.svg/0.4.1/snap.svg-min.js"></script>
     <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&mode=debug"></script>
 
     <script src="./drawer.js"></script>
     <script>
-        ymaps.ready(['Map', 'Placemark', 'geoObject.addon.balloon', 'geoObject.addon.hint'])
+        ymaps.ready(['Map'])
             .then(function (ym) {
                 var map = new ym.Map('map', {
                         center: [55.74524234796502, 37.586730756347656],
@@ -32,7 +31,6 @@
                         (new Freeline(map).enable());
                         var textStr = 'Hello, dear user.... Yet another text. Really long, long string, that doesn\'t fit to container width. So must be truncated. And now looooooooooooooong story';
 
-                        // map.geoObjects.add(new ym.Placemark(map.getCenter()));
                         function setupBubble (pos) {
                             var overlay = new BubbleOverlay(
                                 new PixelGeometryPoint(pos),
@@ -44,7 +42,7 @@
                                     backgroundColor: '#444'
                                 }
                             );
-                            overlay.setMap(map)
+                            overlay.setMap(map);
                         }
 
                         map.events.add('click', function (event) {
