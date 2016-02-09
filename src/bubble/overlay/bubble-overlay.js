@@ -36,11 +36,15 @@ ymaps.modules.define(
                 return 'areas';
             },
 
-            onPaneZoomChange: function () {},
+            onPaneZoomChange: function () {
+            },
 
             onPaneClientPixelsChange: function () {
-                var layoutOptions = this._view.getLayoutSync().getData().options;
-                layoutOptions.set('position', this.getPane().toClientPixels(this.getGeometry().getCoordinates()));
+                var layout = this._view.getLayoutSync();
+                layout.getData().options
+                    .set('translateMode', true)
+                    .set('position', this.getPane().toClientPixels(this.getGeometry().getCoordinates()))
+                    .set('translateMode', false);
             },
 
             applyGeometryToView: function (view, position) {
