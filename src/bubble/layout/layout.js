@@ -268,16 +268,6 @@ ymaps.modules.define(
                     );
                 },
 
-                _getPath: function () {
-                    var bounds = this.getData().options.get('bubbleSVGBounds'),
-                        coords = this._toSVGCoords(this.getData().options.get('position'));
-
-                    return [
-                        ['M', coords[0], coords[1]],
-                        ['L', ]
-                    ];
-                },
-
                 /**
                  * Create SVG element for bubble and yet one, that is hidden
                  * Hidden element used for nearest point calculation
