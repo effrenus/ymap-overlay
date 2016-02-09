@@ -6,6 +6,7 @@
     "watch": "ymb watch",
     "build": "ymb build",
     "lint": "jscs ./src",
+    "serve": "python -m SimpleHTTPServer 8000",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "pre-commit": {

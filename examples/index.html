@@ -15,7 +15,7 @@
 
     <script src="/build/drawer.js"></script>
     <script>
-        ymaps.ready(['Map', 'Placemark', 'geoObject.addon.balloon', 'geoObject.addon.hint'])
+        ymaps.ready(['Map'])
             .then(function (ym) {
                 var map = new ym.Map('map', {
                         center: [55.74524234796502, 37.586730756347656],
@@ -35,14 +35,14 @@
                             var overlay = new BubbleOverlay(
                                 new PixelGeometryPoint(pos),
                                 {
-                                    text: textStr.substring(0, 5 + Math.floor(Math.random() * (textStr.length - 5)))
+                                    text: textStr.substring(0, Math.floor(Math.random() * textStr.length))
                                 },
                                 {
                                     radius: 10,
                                     backgroundColor: '#444'
                                 }
                             );
-                            overlay.setMap(map)
+                            overlay.setMap(map);
                         }
 
                         map.events.add('click', function (event) {
